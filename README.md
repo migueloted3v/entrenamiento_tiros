@@ -108,7 +108,8 @@ Para bajarla como Excel: **Archivo → Descargar → Microsoft Excel**.
 - **La efectividad es encestes / tiros realizados.** Cinco encestes en siete tiros es 71%.
 - **El ritmo solo mide intervalos dentro de un mismo punto.** El primer tiro después de cambiar de posición incluye el desplazamiento del jugador y se excluye. También se descartan intervalos mayores a dos minutos.
 - **La pausa no cuenta.** El tiempo de recuperar el balón se resta del ritmo.
-- **El asterisco en el mapa de calor** marca puntos que se omitieron sin llegar al objetivo. Ese porcentaje es real pero viene de una serie que no se cerró.
+- **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo. Ese porcentaje es real pero viene de una serie que no se cerró.
+- **Los tiros libres se miden en dos partes.** La efectividad de los primeros diez encestes es el dato comparable entre jornadas; la racha máxima consecutiva es un logro aparte y no debe mezclarse con ese porcentaje.
 - **No compares días con distintas posiciones.** Un 80% de un día de posiciones 1 y 2 no es comparable contra un 60% de un día de posición 5. Para eso está el detalle por celda.
 
 ---

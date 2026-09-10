@@ -74,6 +74,12 @@ h1,h2{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;margin:
 .dot-t{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;fill:var(--ink-soft);text-anchor:middle;dominant-baseline:central}
 .dot-t.sel{fill:var(--accent)}
 .dot-t.on,.dot-t.done{fill:var(--surface)}
+.dot-p{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;fill:#fff;text-anchor:middle;dominant-baseline:central}
+.pick{cursor:pointer}
+.cellbtn{display:block;width:100%;padding:0;background:none;border:none}
+.record{display:flex;align-items:baseline;gap:8px;background:var(--surface-2);border-radius:11px;padding:10px 12px;margin:10px 0 14px}
+.record .r{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;line-height:1;color:var(--gold)}
+.record .d{color:var(--ink-soft);font-size:13px}
 .ray-t{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;fill:var(--line-strong);text-anchor:middle;dominant-baseline:central}
 .ray-t.on{fill:var(--accent)}
 
@@ -117,6 +123,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .pips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .pip{width:13px;height:13px;border-radius:50%;border:1.5px solid var(--line-strong)}
 .pip.m{background:var(--made);border-color:var(--made)}
+.pip.x{background:var(--miss);border-color:var(--miss)}
 .cap-run{text-align:right;flex:none}
 .cap-run .r1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:23px;line-height:1}
 .cap-run .r2{font-size:11.5px;color:var(--ink-soft)}
@@ -200,6 +207,32 @@ function sessionStats(s){
           all:{t:s.shots.length,m:s.shots.filter(x=>x.made).length}};
 }
 
+function ftSplit(shots,target){
+  const tl=shots.filter(isFT);
+  let m=0,corte=-1;
+  tl.forEach((s,i)=>{ if(s.made){ m++; if(m===target&&corte<0) corte=i; } });
+  const first = corte<0?tl:tl.slice(0,corte+1);
+  const extra = corte<0?[]:tl.slice(corte+1);
+  let r=0,best=0; tl.forEach(s=>{ if(s.made){r++;best=Math.max(best,r)} else r=0 });
+  return {tl:{t:tl.length,m:tl.filter(x=>x.made).length},
+          first:{t:first.length,m:first.filter(x=>x.made).length,completo:corte>=0},
+          extra:{t:extra.length,m:extra.filter(x=>x.made).length},
+          racha:best};
+}
+function marcaHistorica(sessions,player,excluir){
+  let best=null;
+  sessions.forEach(s=>{
+    if(s.playerName!==player||s.id===excluir) return;
+    const r=ftSplit(s.shots,s.ftTarget||10).racha;
+    if(r>0&&(!best||r>best.racha)) best={racha:r,fecha:s.startedAt};
+  });
+  return best;
+}
+const ritmoDe=arr=>{
+  const g=arr.map(s=>s.gap).filter(x=>typeof x==="number"&&x>0&&x<120000);
+  return g.length?(g.reduce((a,b)=>a+b,0)/g.length/1000):null;
+};
+
 /* ---------- sincronización con Google Sheets ---------- */
 const syncUrl=()=>{try{return localStorage.getItem(K_URL)||""}catch(e){return""}};
 async function pushRemote(session){
@@ -229,7 +262,7 @@ function Marca({size=44}){
 }
 
 /* ---------- cancha ---------- */
-function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false}){
+function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=null,onPick=null}){
   return (
     <svg className="court" viewBox="0 0 328 392" role="img" aria-label="Media cancha con las cinco líneas de tiro">
       <rect className="c-line" x="10" y="30" width="308" height="330"/>
@@ -255,8 +288,18 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false}){
             <line className={"ray"+(on?" on":"")} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}/>
             <text className={"ray-t"+(on?" on":"")} x={lt.x} y={Math.min(381,Math.max(13,lt.y))}>{LINES[i]}</text>
             {RADII.map((r,j)=>{
+              const c=pt(a,r);
+              if(mapa){
+                const d=mapa[i+"-"+j];
+                if(!d) return <circle key={j} className="dot" cx={c.x} cy={c.y} r={4.5}/>;
+                const p=d.m/d.t;
+                return (<g key={j} className="pick" onClick={()=>onPick&&onPick(i,j)}>
+                  <circle cx={c.x} cy={c.y} r={12.5} fill={heat(p)}/>
+                  <text className="dot-p" x={c.x} y={c.y}>{Math.round(p*100)}</text>
+                </g>);
+              }
               const isSel=sel.indexOf(j)>=0; if(compact&&!isSel) return null;
-              const c=pt(a,r), isOn=on&&pos===j, isDone=!!done[i+"-"+j];
+              const isOn=on&&pos===j, isDone=!!done[i+"-"+j];
               const cls=isOn?" on":isDone?" done":isSel?" sel":"";
               return (<g key={j}>
                 <circle className={"dot"+cls} cx={c.x} cy={c.y} r={isOn?11:9.5}/>
@@ -347,7 +390,7 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,onStar
 }
 
 /* ---------- captura ---------- */
-function Capture({session,setSession,onFinish,onAbort}){
+function Capture({session,setSession,onFinish,onAbort,record}){
   const plan=useMemo(()=>{
     const p=[]; LINES.forEach((_,i)=>session.positions.forEach(j=>p.push({line:i,pos:j}))); return p;
   },[session.positions]);
@@ -356,6 +399,8 @@ function Capture({session,setSession,onFinish,onAbort}){
   const [cursor,setCursor]=useState(0);
   const [skipped,setSkipped]=useState([]);
   const [ftPhase,setFtPhase]=useState(false);
+  const [tlLibre,setTlLibre]=useState(false);
+  const [marca10,setMarca10]=useState(null);
   const [paused,setPaused]=useState(false);
   const [tick,setTick]=useState(0);
   const [ask,setAsk]=useState(null);
@@ -364,13 +409,24 @@ function Capture({session,setSession,onFinish,onAbort}){
   const spot = ftPhase?{line:5,pos:0}:plan[order[cursor]];
   const target = ftPhase?session.ftTarget:session.target;
   const cur = session.shots.filter(s=>s.line===spot.line&&s.pos===spot.pos);
-  const hechos=cur.length, mCur=cur.filter(s=>s.made).length, listo=mCur>=target;
+  const hechos=cur.length, mCur=cur.filter(s=>s.made).length;
+  const listo=mCur>=target && !(ftPhase&&tlLibre);
+  const ultimo=hechos?cur[hechos-1]:null;
+  let rachaViva=0; for(let i=hechos-1;i>=0;i--){ if(cur[i].made) rachaViva++; else break; }
+  let rr=0,rachaMax=0; cur.forEach(s=>{ if(s.made){rr++;rachaMax=Math.max(rachaMax,rr)} else rr=0 });
   const etiqueta = ftPhase?"tiros libres":LINES[spot.line]+(spot.pos+1);
 
   useEffect(()=>{let a=true;(async()=>{try{if(navigator.wakeLock){const w=await navigator.wakeLock.request("screen");a?wake.current=w:w.release()}}catch(e){}})();
     return()=>{a=false;try{wake.current&&wake.current.release()}catch(e){}}},[]);
   useEffect(()=>{if(!paused)return;const t=setInterval(()=>setTick(x=>x+1),500);return()=>clearInterval(t)},[paused]);
-  useEffect(()=>{if(listo)setAsk("confirm")},[listo]);
+  useEffect(()=>{
+    if(!listo) return;
+    if(ftPhase){ setMarca10({m:mCur,t:hechos}); setAsk("tlDiez"); }
+    else setAsk("confirm");
+  },[listo]);
+  useEffect(()=>{
+    if(ftPhase&&tlLibre&&ultimo&&!ultimo.made) setAsk("tlFin");
+  },[ftPhase,tlLibre,ultimo]);
 
   const tirar=useCallback(made=>{
     if(listo||paused||ask)return;
@@ -391,6 +447,10 @@ function Capture({session,setSession,onFinish,onAbort}){
   };
   const avanzar=()=>{
     if(ftPhase){setAsk(null);onFinish();return}
+    const p=skipped.filter(x=>x!==order[cursor]);
+    setSkipped(p); siguiente(p);
+  };
+  const cerrar=()=>{
     const p=skipped.filter(x=>x!==order[cursor]);
     setSkipped(p); siguiente(p);
   };
@@ -427,8 +487,13 @@ function Capture({session,setSession,onFinish,onAbort}){
         <div className="cap-court"><Court line={ftPhase?null:spot.line} pos={spot.pos} sel={session.positions} done={done} ft={ftPhase} compact/></div>
         <div className="cap-id">
           <div className="big">{ftPhase?"Tiros libres":<React.Fragment>{LINES[spot.line]}<span style={{color:"var(--accent)"}}>{spot.pos+1}</span></React.Fragment>}</div>
-          <div className="sub">{mCur} de {target} encestes · {hechos} tiros · {session.playerName}</div>
-          <div className="pips">{Array.from({length:target}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}</div>
+          <div className="sub">{ftPhase&&tlLibre
+            ? `racha viva: ${rachaViva} seguidos · ${hechos} tiros`
+            : `${mCur} de ${target} encestes · ${hechos} tiros · ${session.playerName}`}</div>
+          <div className="pips">
+            {Array.from({length:target}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}
+            {ftPhase&&tlLibre&&mCur>target&&<span style={{color:"var(--ink-soft)",fontSize:12,marginLeft:4}}>+{mCur-target}</span>}
+          </div>
         </div>
         <div className="cap-run">
           <div className="r1">{st.all.m}/{st.all.t}</div>
@@ -438,7 +503,8 @@ function Capture({session,setSession,onFinish,onAbort}){
 
       <div className="halves">
         <button className="half made" onClick={()=>tirar(true)} aria-label="Anotó">
-          <span className="lbl">Anotó</span><span className="cnt">faltan {Math.max(0,target-mCur)}</span>
+          <span className="lbl">Anotó</span>
+          <span className="cnt">{ftPhase&&tlLibre?`${rachaViva} seguidos`:`faltan ${Math.max(0,target-mCur)}`}</span>
         </button>
         <button className="half miss" onClick={()=>tirar(false)} aria-label="Falló">
           <span className="cnt">{hechos-mCur} fallados</span><span className="lbl">Falló</span>
@@ -447,7 +513,7 @@ function Capture({session,setSession,onFinish,onAbort}){
 
       <div className="cap-bar">
         <button onClick={togglePausa}>Pausa</button>
-        <button onClick={()=>setAsk("omitir")} disabled={ftPhase}>Omitir punto</button>
+        <button onClick={()=>setAsk(ftPhase?"exit":"omitir")}>{ftPhase?"Finalizar":"Omitir punto"}</button>
         <button onClick={()=>setAsk("exit")}>Terminar</button>
       </div>
 
@@ -473,10 +539,14 @@ function Capture({session,setSession,onFinish,onAbort}){
 
       {ask==="omitir"&&
         <div className="sheet"><div className="sheet-in">
-          <h2>¿Omitir {etiqueta}?</h2>
-          <p className="hint">Se conservan los {hechos} tiros que ya lleva. El punto queda pendiente y te lo vuelvo a ofrecer al cerrar la jornada.</p>
-          <button className="btn btn-primary" style={{marginTop:14}} onClick={omitir}>Sí, seguir con {sig}</button>
-          <button className="btn btn-quiet" onClick={()=>setAsk(null)}>Mejor seguir aquí</button>
+          <h2>¿Cerrar {etiqueta} aquí?</h2>
+          <div className="score-line">
+            <span className="big">{hechos?pct(mCur,hechos)+"%":"—"}</span>
+            <span className="side">{mCur} encestes en {hechos} tiros</span>
+          </div>
+          <button className="btn btn-primary" onClick={cerrar}>Dejarlo así y seguir</button>
+          <button className="btn btn-quiet" onClick={omitir}>Retomarlo al final</button>
+          <button className="btn btn-quiet" onClick={()=>setAsk(null)}>Seguir tirando aquí</button>
         </div></div>}
 
       {ask==="pendientes"&&
@@ -490,12 +560,39 @@ function Capture({session,setSession,onFinish,onAbort}){
       {ask==="preguntaTL"&&
         <div className="sheet"><div className="sheet-in">
           <h2>¿Cierran con tiros libres?</h2>
-          <p className="hint">Se capturan igual: los tiros que hagan falta hasta lograr {session.ftTarget} encestes.</p>
+          <p className="hint">Se miden los primeros {session.ftTarget} encestes. Si trae buena racha, puede seguir tirando después.</p>
+          {record&&
+            <div className="record"><span className="r">{record.racha}</span>
+              <span className="d">seguidos es la mejor marca de {session.playerName}<br/>{fecha(record.fecha)}</span></div>}
           <button className="btn btn-primary" style={{marginTop:14}}
                   onClick={()=>{setAsk(null);setFtPhase(true);lastT.current=null;pausedAcc.current=0}}>
             Sí, {session.ftTarget} tiros libres
           </button>
           <button className="btn btn-quiet" onClick={onFinish}>Hoy no, terminar aquí</button>
+        </div></div>}
+
+      {ask==="tlDiez"&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>{session.ftTarget} encestes logrados</h2>
+          <div className="score-line">
+            <span className="big">{marca10?pct(marca10.m,marca10.t):0}%</span>
+            <span className="side">{marca10&&marca10.m} encestes en {marca10&&marca10.t} tiros</span>
+          </div>
+          {record&&<p className="hint" style={{marginBottom:12}}>Mejor marca: {record.racha} seguidos · {fecha(record.fecha)}</p>}
+          <button className="btn btn-primary" onClick={()=>{setTlLibre(true);setAsk(null)}}>Seguir tirando</button>
+          <button className="btn btn-quiet" onClick={onFinish}>Terminar aquí</button>
+          <p className="hint" style={{marginTop:10}}>Este porcentaje ya quedó guardado. Lo que siga se mide aparte, como racha.</p>
+        </div></div>}
+
+      {ask==="tlFin"&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>Racha de {rachaMax} seguidos</h2>
+          {record&&rachaMax>record.racha
+            ? <p className="hint" style={{color:"var(--gold)"}}>Nueva mejor marca. La anterior era {record.racha}.</p>
+            : record && <p className="hint">Su mejor marca sigue siendo {record.racha}, del {fecha(record.fecha)}.</p>}
+          <p className="hint" style={{marginTop:8}}>Van {hechos} tiros libres en total, {mCur} encestados.</p>
+          <button className="btn btn-primary" style={{marginTop:14}} onClick={onFinish}>Terminar la jornada</button>
+          <button className="btn btn-quiet" onClick={()=>setAsk(null)}>Seguir tirando</button>
         </div></div>}
 
       {ask==="exit"&&
@@ -511,7 +608,7 @@ function Capture({session,setSession,onFinish,onAbort}){
 }
 
 /* ---------- bloques de análisis ---------- */
-function Heat({shots,target}){
+function Heat({shots,target,onPick}){
   return (
     <table className="grid">
       <thead><tr><th></th>{POS.map(p=><th key={p}>{p}</th>)}</tr></thead>
@@ -522,9 +619,10 @@ function Heat({shots,target}){
             {POS.map((_,j)=>{
               const c=agg(shots,s=>s.line===i&&s.pos===j);
               if(!c.t) return <td key={j}><div className="cell empty"><div className="v">—</div><div className="s">&nbsp;</div></div></td>;
-              return <td key={j}><div className="cell" style={{background:heat(c.m/c.t)}}>
+              return <td key={j}><button className="cellbtn" onClick={()=>onPick&&onPick(i,j)}>
+                <div className="cell" style={{background:heat(c.m/c.t)}}>
                 <div className="v">{pct(c.m,c.t)}%</div>
-                <div className="s">{c.m}/{c.t}{target&&c.m<target?" *":""}</div></div></td>;
+                <div className="s">{c.m}/{c.t}{target&&c.m<target?" *":""}</div></div></button></td>;
             })}
           </tr>
         ))}
@@ -546,8 +644,17 @@ function Lineas({shots}){
 }
 
 /* ---------- resumen de jornada ---------- */
-function Summary({session,onHome,toast}){
+function Summary({session,onHome,toast,record}){
+  const [det,setDet]=useState(null);
   const st=sessionStats(session);
+  const tl=ftSplit(session.shots,session.ftTarget||10);
+  const tiros=session.shots.filter(s=>!isFT(s));
+  const mapa=useMemo(()=>{
+    const o={}; tiros.forEach(s=>{ const k=s.line+"-"+s.pos; (o[k]=o[k]||{m:0,t:0}); o[k].t++; if(s.made)o[k].m++; });
+    return o;
+  },[session.shots]);
+  const dShots = det? tiros.filter(s=>s.line===det.line&&s.pos===det.pos):[];
+  const dM = dShots.filter(s=>s.made).length;
   const gaps=session.shots.map(s=>s.gap).filter(g=>typeof g==="number"&&g>0&&g<120000);
   const ritmo=gaps.length?gaps.reduce((a,b)=>a+b,0)/gaps.length/1000:null;
   let r=0,best=0; session.shots.forEach(s=>{if(s.made){r++;best=Math.max(best,r)}else r=0});
@@ -578,20 +685,51 @@ function Summary({session,onHome,toast}){
           <span className="meta">{st.tiro.m} encestes<br/>en {st.tiro.t} tiros</span>
         </div>
         <div className="stats" style={{marginTop:10}}>
-          <div className="stat"><div className="n">{st.ft.t?pct(st.ft.m,st.ft.t)+"%":"—"}</div><div className="l">tiros libres {st.ft.t?`(${st.ft.m}/${st.ft.t})`:""}</div></div>
+          <div className="stat"><div className="n">{tl.first.t?pct(tl.first.m,tl.first.t)+"%":"—"}</div><div className="l">primeros {session.ftTarget||10} libres {tl.first.t?`(${tl.first.m}/${tl.first.t})`:""}</div></div>
           <div className="stat"><div className="n">{ritmo?ritmo.toFixed(1)+"s":"—"}</div><div className="l">entre tiros</div></div>
-          <div className="stat"><div className="n">{best}</div><div className="l">mejor racha</div></div>
+          <div className="stat"><div className="n">{tl.racha||"—"}</div><div className="l">racha en libres{tl.extra.t?` (+${tl.extra.t} extra)`:""}</div></div>
         </div>
+        {record&&tl.racha>record.racha&&
+          <div className="record" style={{marginBottom:0}}><span className="r">{tl.racha}</span>
+            <span className="d">nueva mejor marca en tiros libres<br/>la anterior era {record.racha}, del {fecha(record.fecha)}</span></div>}
       </div>
       <div className="card">
         <h2>Efectividad por posición</h2>
-        <Heat shots={session.shots.filter(s=>!isFT(s))} target={session.target}/>
+        <Heat shots={tiros} target={session.target} onPick={(i,j)=>setDet({line:i,pos:j})}/>
         <p className="hint" style={{marginTop:10}}>Encestes entre tiros realizados. La posición 1 es la más cercana al aro.
           El asterisco marca los puntos que se omitieron sin llegar a los {session.target} encestes.</p>
       </div>
-      <div className="card"><h2>Efectividad por línea</h2><Lineas shots={session.shots.filter(s=>!isFT(s))}/></div>
+      <div className="card">
+        <h2>Mapa de la jornada</h2>
+        <Court mapa={mapa} onPick={(i,j)=>setDet({line:i,pos:j})}/>
+        <p className="hint" style={{marginTop:6}}>Toca cualquier punto para ver su detalle.</p>
+      </div>
+
+      <div className="card"><h2>Efectividad por línea</h2><Lineas shots={tiros}/></div>
       <button className="btn btn-quiet" onClick={bajar}>Descargar CSV de esta jornada</button>
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
+
+      {det&&
+        <div className="sheet" onClick={()=>setDet(null)}>
+          <div className="sheet-in" onClick={e=>e.stopPropagation()}>
+            <h2>Punto {LINES[det.line]}{det.pos+1}</h2>
+            <div className="score-line">
+              <span className="big" style={{color:dShots.length?heat(dM/dShots.length):"var(--ink-soft)"}}>
+                {dShots.length?pct(dM,dShots.length)+"%":"—"}</span>
+              <span className="side">{dM} encestes<br/>en {dShots.length} tiros</span>
+            </div>
+            {!!dShots.length&&<>
+              <div className="pips">{dShots.map((s,i)=><span key={i} className={"pip "+(s.made?"m":"x")}/>)}</div>
+              <p className="hint" style={{margin:"6px 0 14px"}}>Secuencia en orden de tiro.</p>
+              <div className="stats">
+                <div className="stat"><div className="n">{ritmoDe(dShots)?ritmoDe(dShots).toFixed(1)+"s":"—"}</div><div className="l">entre tiros</div></div>
+                <div className="stat"><div className="n">{dM>=session.target?"Sí":"No"}</div><div className="l">completado</div></div>
+              </div>
+            </>}
+            {!dShots.length&&<p className="hint">Este punto no se entrenó en esta jornada.</p>}
+            <button className="btn btn-primary" style={{marginTop:14}} onClick={()=>setDet(null)}>Cerrar</button>
+          </div>
+        </div>}
     </div>
   );
 }
@@ -738,13 +876,15 @@ function App(){
     }
   };
 
+  const record = session? marcaHistorica(sessions,session.playerName,session.id) : null;
+
   if(screen==="capture"&&session)
-    return <Capture session={session} setSession={setSession} onFinish={finish}
+    return <Capture session={session} setSession={setSession} onFinish={finish} record={record}
                     onAbort={()=>{setSession(null);setScreen("home")}}/>;
 
   const chrome=c=><React.Fragment>{c}{msg&&<div className="toast">{msg}</div>}</React.Fragment>;
   if(screen==="summary"&&session)
-    return chrome(<Summary session={session} onHome={()=>{setSession(null);setScreen("home")}} toast={toast}/>);
+    return chrome(<Summary session={session} record={record} onHome={()=>{setSession(null);setScreen("home")}} toast={toast}/>);
   if(screen==="analisis")
     return chrome(<Analisis sessions={sessions} players={nombres} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")

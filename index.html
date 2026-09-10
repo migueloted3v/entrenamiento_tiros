@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#1D428A">
+<meta name="theme-color" content="#0F1D3A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tiros">
@@ -43,7 +43,9 @@ body{background:var(--paper);color:var(--ink);font-family:'Barlow',system-ui,-ap
 button{font:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation}
 h1,h2{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:700;margin:0}
 
-.wrap{max-width:520px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom))}
+.safetop{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:#0F1D3A;z-index:50;pointer-events:none}
+.wrap{max-width:520px;margin:0 auto;
+  padding:calc(22px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(30px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left))}
 .masthead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
 .masthead h1{font-size:38px;line-height:.95}
 .masthead p{margin:2px 0 0;color:var(--ink-soft);font-size:14px}
@@ -107,7 +109,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .hist-main span{display:block;color:var(--ink-soft);font-size:13px}
 
 .cap{display:flex;flex-direction:column;height:100dvh}
-.cap-top{display:flex;align-items:center;gap:12px;padding:calc(8px + env(safe-area-inset-top)) 14px 8px;background:var(--surface);border-bottom:1px solid var(--line)}
+.cap-top{display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 14px 8px;background:var(--surface);border-bottom:1px solid var(--line)}
 .cap-court{width:58px;flex:none}
 .cap-id{flex:1;min-width:0}
 .cap-id .big{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:32px;line-height:1}
@@ -167,6 +169,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 </style>
 </head>
 <body>
+<div class="safetop"></div>
 <div id="root"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>

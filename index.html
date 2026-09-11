@@ -126,15 +126,17 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .pip.x{background:var(--miss);border-color:var(--miss)}
 .cap-run{text-align:right;flex:none}
 .cap-run .r1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:23px;line-height:1}
-.cap-run .r2{font-size:11.5px;color:var(--ink-soft)}
+.cap-run .r2{font-size:10.5px;color:var(--ink-soft)}
+.cap-run .r3{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:15px;line-height:1;margin-top:7px;color:var(--ink-soft)}
+.pips.fail{margin-top:5px}
 
 .halves{flex:1;display:flex;flex-direction:column;min-height:0}
 .half{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;user-select:none;transition:filter .08s}
 .half:active{filter:brightness(1.22)}
 .half.made{background:var(--made)}
 .half.miss{background:var(--miss)}
-.half .lbl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:44px;line-height:1}
-.half .cnt{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:19px;opacity:.75}
+.half .lbl{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:46px;line-height:1}
+.half .cnt{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:30px;opacity:.8;line-height:1.15}
 .cap-bar{display:flex;border-top:1px solid var(--line);background:var(--surface);padding-bottom:env(safe-area-inset-bottom)}
 .cap-bar button{flex:1;padding:13px 4px;font-size:14.5px;font-weight:500;color:var(--ink-soft)}
 .cap-bar button+button{border-left:1px solid var(--line)}
@@ -157,9 +159,23 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .grid{width:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed}
 .grid th{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:15px;color:var(--ink-soft);padding:0 0 2px}
 .cell{border-radius:8px;padding:7px 2px;text-align:center;color:#fff}
-.cell .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:19px;line-height:1}
+.cell .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;line-height:1}
 .cell .s{font-size:10.5px;opacity:.82;line-height:1.2}
 .cell.empty{background:var(--surface-2);color:var(--ink-soft)}
+.cell.tot{background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
+.cell.gt{background:var(--accent);color:#fff}
+.grid th.tot{color:var(--accent);font-weight:700;font-size:12px}
+.tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.tbl th{font-size:11.5px;color:var(--ink-soft);font-weight:600;padding:6px 1px;text-align:center}
+.tbl th.rowh{text-align:left;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;color:var(--ink);width:34px}
+.tbl th.tot{color:var(--accent);font-weight:700}
+.tbl td{text-align:center;font-size:13px;color:var(--ink-soft);padding:7px 1px;border-bottom:1px solid var(--surface-2)}
+.tbl td.last{color:var(--ink);font-weight:600}
+.tbl td.tot{color:var(--accent);font-weight:700}
+.tbl tr.totrow td{border-bottom:none;color:var(--ink);font-weight:700;padding-top:9px}
+.tbl tr.totrow td.gt{background:var(--accent);color:#fff;border-radius:6px}
+.zlab{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;fill:#fff;text-anchor:middle;pointer-events:none}
+.zlab.off{fill:var(--ink-soft)}
 .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0}
 .bar-row .k{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;width:16px}
 .bar-track{flex:1;height:11px;background:var(--surface-2);border-radius:6px;overflow:hidden}
@@ -186,7 +202,7 @@ const {useState,useEffect,useRef,useMemo,useCallback} = React;
 
 const LINES=["A","B","C","D","E"], POS=[1,2,3,4,5];
 const ANGLES=[90,45,0,-45,-90], RADII=[46,72,98,124,150], HOOP={x:45,y:195};
-const K_PLAYERS="cl_players", K_SESSIONS="cl_sessions", K_PEND="cl_pending", K_URL="cl_sync_url", K_CFG="cl_cfg";
+const K_PLAYERS="cl_players", K_SESSIONS="cl_sessions", K_PEND="cl_pending", K_URL="cl_sync_url", K_CFG="cl_cfg", K_GAMES="cl_games", K_GPEND="cl_gpending";
 
 const rad=d=>d*Math.PI/180;
 const pt=(a,r)=>({x:HOOP.x+r*Math.cos(rad(a)),y:HOOP.y+r*Math.sin(rad(a))});
@@ -228,6 +244,35 @@ function marcaHistorica(sessions,player,excluir){
   });
   return best;
 }
+const PX_M=22, ARO={x:45,y:195};
+const ZONA_NOM={RA:"Área restringida",PAINT:"Pintura",MID:"Media distancia",C3:"Triple de esquina",ATB:"Triple sobre el arco"};
+const ZONAS=["RA","PAINT","MID","C3","ATB"];
+function zonaDe(x,y){
+  const dx=x-ARO.x, dy=y-ARO.y, r=Math.sqrt(dx*dx+dy*dy);
+  if(x<=77&&Math.abs(dy)>=145) return "C3";
+  if(r>=148.5) return "ATB";
+  if(r<=27.5) return "RA";
+  if(x<=138&&y>=141&&y<=249) return "PAINT";
+  return "MID";
+}
+const esTriple=z=>z==="C3"||z==="ATB";
+const distM=(x,y)=>Math.sqrt(Math.pow(x-ARO.x,2)+Math.pow(y-ARO.y,2))/PX_M;
+const puntosDe=s=>(s.made?(esTriple(s.zona)?3:2):0)+(s.ftM||0);
+function boxScore(shots){
+  const tc={t:shots.length,m:shots.filter(s=>s.made).length};
+  const t3s=shots.filter(s=>esTriple(s.zona));
+  const t3={t:t3s.length,m:t3s.filter(s=>s.made).length};
+  const tl={t:shots.reduce((a,s)=>a+(s.ftA||0),0),m:shots.reduce((a,s)=>a+(s.ftM||0),0)};
+  const pts=shots.reduce((a,s)=>a+puntosDe(s),0);
+  return {tc,t3,tl,pts,pps:tc.t?pts/tc.t:0};
+}
+function porZona(shots){
+  const o={}; ZONAS.forEach(z=>o[z]={m:0,t:0});
+  shots.forEach(s=>{ if(!o[s.zona])o[s.zona]={m:0,t:0}; o[s.zona].t++; if(s.made)o[s.zona].m++; });
+  return o;
+}
+const MIN_ZONA=6;
+
 const ritmoDe=arr=>{
   const g=arr.map(s=>s.gap).filter(x=>typeof x==="number"&&x>0&&x<120000);
   return g.length?(g.reduce((a,b)=>a+b,0)/g.length/1000):null;
@@ -238,7 +283,7 @@ const syncUrl=()=>{try{return localStorage.getItem(K_URL)||""}catch(e){return""}
 async function pushRemote(session){
   const url=syncUrl(); if(!url) throw new Error("sin url");
   const r=await fetch(url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body:JSON.stringify({accion:"guardar",jornada:session})});
+    body:JSON.stringify(session.rival?{accion:"guardar_juego",juego:session}:{accion:"guardar",jornada:session})});
   const j=await r.json();
   if(!j||j.ok!==true) throw new Error((j&&j.error)||"respuesta inesperada");
   return true;
@@ -247,7 +292,8 @@ async function pullRemote(){
   const url=syncUrl(); if(!url) return null;
   const r=await fetch(url+(url.includes("?")?"&":"?")+"accion=leer");
   const j=await r.json();
-  return Array.isArray(j.jornadas)?j.jornadas:null;
+  return {jornadas:Array.isArray(j.jornadas)?j.jornadas:null,
+          juegos:Array.isArray(j.juegos)?j.juegos:null};
 }
 function mergeSessions(a,b){
   const map=new Map();
@@ -262,9 +308,24 @@ function Marca({size=44}){
 }
 
 /* ---------- cancha ---------- */
-function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=null,onPick=null}){
+function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=null,onPick=null,
+                juego=false,zonas=null,tiros=null,marca=null,onTap=null}){
+  const zf=z=>{ const d=zonas&&zonas[z]; return (d&&d.t>=MIN_ZONA)?heat(d.m/d.t):"var(--surface-2)"; };
   return (
-    <svg className="court" viewBox="0 0 328 392" role="img" aria-label="Media cancha con las cinco líneas de tiro">
+    <svg className={"court"+(onTap?" pick":"")} viewBox="0 0 328 392" role="img"
+         onClick={onTap} aria-label={juego?"Media cancha para marcar el lugar del tiro":"Media cancha con las cinco líneas de tiro"}>
+      {zonas&&<g opacity="0.9">
+        <rect x="10" y="30" width="308" height="330" fill={zf("ATB")}/>
+        <rect x="10" y="30" width="67" height="20" fill={zf("C3")}/>
+        <rect x="10" y="340" width="67" height="20" fill={zf("C3")}/>
+        <path d="M10 50 L77 50 A 148.5 148.5 0 0 1 77 340 L10 340 Z" fill={zf("MID")}/>
+        <rect x="10" y="141" width="128" height="108" fill={zf("PAINT")}/>
+        <path d="M45 167.5 A 27.5 27.5 0 0 1 45 222.5 Z" fill={zf("RA")}/>
+      </g>}
+      {zonas&&[["RA",66,196],["PAINT",104,128],["MID",158,324],["C3",44,45],["ATB",252,84]].map(([z,x,y])=>{
+        const d=zonas[z];
+        return <text key={z} className={"zlab"+(d&&d.t>=MIN_ZONA?"":" off")} x={x} y={y}>{d&&d.t?d.m+"/"+d.t:""}</text>;
+      })}
       <rect className="c-line" x="10" y="30" width="308" height="330"/>
       <path className="c-line" d="M318 155 A 40 40 0 0 0 318 235"/>
       <rect className="c-line" x="10" y="141" width="128" height="108"/>
@@ -281,7 +342,7 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
       <line className="c-hoop" x1="36" y1="175" x2="36" y2="215"/>
       <line className="c-hoop" x1="36" y1="195" x2="39.5" y2="195"/>
       <circle className="c-hoop" cx="45" cy="195" r="5.5"/>
-      {ANGLES.map((a,i)=>{
+      {!juego&&ANGLES.map((a,i)=>{
         const p1=pt(a,36),p2=pt(a,162),lt=pt(a,178),on=line===i;
         return (
           <g key={i}>
@@ -309,13 +370,27 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
           </g>
         );
       })}
+      {tiros&&tiros.map((s,i)=> s.made
+        ? <circle key={i} cx={s.x} cy={s.y} r="7" fill="#FFFFFF" stroke="#16181c" strokeWidth="1.4"/>
+        : <circle key={i} cx={s.x} cy={s.y} r="7" fill="none" stroke="#16181c" strokeWidth="2.2"/>)}
+      {marca&&<g>
+        <circle cx={marca.x} cy={marca.y} r="16" fill="none" stroke="var(--gold)" strokeWidth="2.5"/>
+        <line x1={marca.x} y1={marca.y-22} x2={marca.x} y2={marca.y-10} stroke="var(--gold)" strokeWidth="2.5"/>
+        <line x1={marca.x} y1={marca.y+10} x2={marca.x} y2={marca.y+22} stroke="var(--gold)" strokeWidth="2.5"/>
+        <line x1={marca.x-22} y1={marca.y} x2={marca.x-10} y2={marca.y} stroke="var(--gold)" strokeWidth="2.5"/>
+        <line x1={marca.x+10} y1={marca.y} x2={marca.x+22} y2={marca.y} stroke="var(--gold)" strokeWidth="2.5"/>
+      </g>}
     </svg>
   );
 }
 
 /* ---------- inicio ---------- */
-function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,onStart,onOpen,onAnalisis,onAjustes,syncState}){
+function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onAjustes,syncState}){
   const [nuevo,setNuevo]=useState("");
+  const [rival,setRival]=useState("");
+  const [liga,setLiga]=useState("");
+  const [askJuego,setAskJuego]=useState(false);
+  const ligas=Array.from(new Set(games.map(g=>g.liga).filter(Boolean)));
   const togglePos=j=>{
     const s=cfg.positions.indexOf(j)>=0?cfg.positions.filter(x=>x!==j):[...cfg.positions,j].sort((a,b)=>a-b);
     setCfg({...cfg,positions:s});
@@ -367,7 +442,44 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,onStar
       <button className="btn btn-primary" disabled={!playerId||!puestos} onClick={onStart}>
         {puestos?`Iniciar en A${cfg.positions[0]+1}`:"Elige al menos una posición"}
       </button>
+      <button className="btn btn-quiet" onClick={()=>setAskJuego(true)} disabled={!playerId}>Capturar un partido</button>
       <button className="btn btn-quiet" onClick={onAnalisis}>Ver análisis de todos</button>
+
+      {askJuego&&
+        <div className="sheet" onClick={()=>setAskJuego(false)}>
+          <div className="sheet-in" onClick={e=>e.stopPropagation()}>
+            <h2>Partido de {playerId}</h2>
+            <p className="hint" style={{marginBottom:10}}>Se capturan los tiros de una sola jugadora.</p>
+            <input type="text" value={rival} placeholder="Contra quién juegan"
+                   onChange={e=>setRival(e.target.value)} style={{width:"100%"}}/>
+            <input type="text" value={liga} placeholder="Liga o torneo" style={{width:"100%",marginTop:8}}
+                   onChange={e=>setLiga(e.target.value)}/>
+            {!!ligas.length&&
+              <div className="chips" style={{marginTop:8}}>
+                {ligas.map(l=><button key={l} className={"chip"+(liga===l?" on":"")} onClick={()=>setLiga(l)}>{l}</button>)}
+              </div>}
+            <button className="btn btn-primary" style={{marginTop:12}}
+                    onClick={()=>{setAskJuego(false);onJuego(rival.trim()||"Rival",liga.trim()||"Sin liga")}}>Empezar el partido</button>
+            <button className="btn btn-quiet" onClick={()=>setAskJuego(false)}>Cancelar</button>
+          </div>
+        </div>}
+
+      {!!games.length&&
+        <div className="card" style={{marginTop:22}}>
+          <h2>Últimos partidos</h2>
+          {games.slice(0,8).map(g=>{
+            const b=boxScore(g.shots);
+            return (
+              <button key={g.id} className="hist" onClick={()=>onOpenJuego(g)}>
+                <span className="hist-pct" style={{color:"var(--accent)"}}>{b.pts}</span>
+                <span className="hist-main">
+                  <b>{g.playerName} vs {g.rival}</b>
+                  <span>{fecha(g.startedAt)} · {b.tc.m}/{b.tc.t} de campo{g.liga?" · "+g.liga:""}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>}
 
       {!!sessions.length&&
         <div className="card" style={{marginTop:22}}>
@@ -488,16 +600,23 @@ function Capture({session,setSession,onFinish,onAbort,record}){
         <div className="cap-id">
           <div className="big">{ftPhase?"Tiros libres":<React.Fragment>{LINES[spot.line]}<span style={{color:"var(--accent)"}}>{spot.pos+1}</span></React.Fragment>}</div>
           <div className="sub">{ftPhase&&tlLibre
-            ? `racha viva: ${rachaViva} seguidos · ${hechos} tiros`
-            : `${mCur} de ${target} encestes · ${hechos} tiros · ${session.playerName}`}</div>
+            ? `racha viva: ${rachaViva} seguidos`
+            : `${mCur} de ${target} encestes · ${ftPhase?session.playerName:`punto ${cursor+1} de ${order.length}`}`}</div>
           <div className="pips">
-            {Array.from({length:target}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}
-            {ftPhase&&tlLibre&&mCur>target&&<span style={{color:"var(--ink-soft)",fontSize:12,marginLeft:4}}>+{mCur-target}</span>}
+            {Array.from({length:Math.min(target,12)}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}
+            {mCur>Math.min(target,12)&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{mCur-Math.min(target,12)}</span>}
           </div>
+          {hechos>mCur&&
+            <div className="pips fail">
+              {Array.from({length:Math.min(hechos-mCur,12)}).map((_,i)=><span key={i} className="pip x"/>)}
+              {hechos-mCur>12&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{hechos-mCur-12}</span>}
+            </div>}
         </div>
         <div className="cap-run">
-          <div className="r1">{st.all.m}/{st.all.t}</div>
-          <div className="r2">{ftPhase?"con TL":`${cursor+1} de ${order.length}`}</div>
+          <div className="r1">{mCur}/{hechos}</div>
+          <div className="r2">{ftPhase?"esta tanda":"esta posición"}</div>
+          <div className="r3">{st.all.m}/{st.all.t}</div>
+          <div className="r2">jornada</div>
         </div>
       </div>
 
@@ -507,7 +626,7 @@ function Capture({session,setSession,onFinish,onAbort,record}){
           <span className="cnt">{ftPhase&&tlLibre?`${rachaViva} seguidos`:`faltan ${Math.max(0,target-mCur)}`}</span>
         </button>
         <button className="half miss" onClick={()=>tirar(false)} aria-label="Falló">
-          <span className="cnt">{hechos-mCur} fallados</span><span className="lbl">Falló</span>
+          <span className="cnt">{hechos-mCur} fallado{hechos-mCur===1?"":"s"}</span><span className="lbl">Falló</span>
         </button>
       </div>
 
@@ -609,25 +728,123 @@ function Capture({session,setSession,onFinish,onAbort,record}){
 
 /* ---------- bloques de análisis ---------- */
 function Heat({shots,target,onPick}){
+  const cel=(i,j)=>agg(shots,s=>s.line===i&&s.pos===j);
+  const fila=i=>agg(shots,s=>s.line===i);
+  const col=j=>agg(shots,s=>s.pos===j);
+  const tot=agg(shots,()=>true);
+  const Tot=({d,gt})=> d.t
+    ? <div className={"cell "+(gt?"gt":"tot")}><div className="v">{pct(d.m,d.t)}%</div><div className="s">{d.m}/{d.t}</div></div>
+    : <div className="cell empty"><div className="v">—</div><div className="s">&nbsp;</div></div>;
   return (
     <table className="grid">
-      <thead><tr><th></th>{POS.map(p=><th key={p}>{p}</th>)}</tr></thead>
+      <thead><tr><th></th>{POS.map(p=><th key={p}>{p}</th>)}<th className="tot">Prom</th></tr></thead>
       <tbody>
         {LINES.map((L,i)=>(
           <tr key={L}>
             <th>{L}</th>
             {POS.map((_,j)=>{
-              const c=agg(shots,s=>s.line===i&&s.pos===j);
+              const c=cel(i,j);
               if(!c.t) return <td key={j}><div className="cell empty"><div className="v">—</div><div className="s">&nbsp;</div></div></td>;
               return <td key={j}><button className="cellbtn" onClick={()=>onPick&&onPick(i,j)}>
                 <div className="cell" style={{background:heat(c.m/c.t)}}>
                 <div className="v">{pct(c.m,c.t)}%</div>
                 <div className="s">{c.m}/{c.t}{target&&c.m<target?" *":""}</div></div></button></td>;
             })}
+            <td><Tot d={fila(i)}/></td>
           </tr>
         ))}
+        <tr>
+          <th className="tot">Prom</th>
+          {POS.map((_,j)=><td key={j}><Tot d={col(j)}/></td>)}
+          <td><Tot d={tot} gt/></td>
+        </tr>
       </tbody>
     </table>
+  );
+}
+
+/* ---------- evolución por periodo ---------- */
+function bucketKey(iso,modo){
+  const d=new Date(iso);
+  if(modo==="mes") return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  if(modo==="semana"){
+    const x=new Date(d); x.setHours(0,0,0,0);
+    x.setDate(x.getDate()-((x.getDay()+6)%7));
+    return "w"+x.toISOString().slice(0,10);
+  }
+  return d.toISOString().slice(0,10);
+}
+function bucketLabel(k,modo){
+  if(modo==="mes"){ const [y,m]=k.split("-");
+    return new Date(Number(y),Number(m)-1,1).toLocaleDateString("es-MX",{month:"short",year:"2-digit"}); }
+  const iso = modo==="semana"? k.slice(1):k;
+  const d=new Date(iso+"T12:00:00");
+  const t=d.toLocaleDateString("es-MX",{day:"2-digit",month:"short"});
+  return modo==="semana"? "sem "+t : t;
+}
+function Evolucion({sessions,player}){
+  const [eje,setEje]=useState("linea");
+  const [modo,setModo]=useState("dia");
+  const mias=useMemo(()=>sessions.filter(s=>s.playerName===player),[sessions,player]);
+
+  const cubos=useMemo(()=>{
+    const m={};
+    mias.forEach(s=>{
+      const k=bucketKey(s.startedAt,modo);
+      (m[k]=m[k]||[]).push(...s.shots.filter(x=>!isFT(x)));
+    });
+    return Object.keys(m).sort().slice(-5).map(k=>({k,label:bucketLabel(k,modo),shots:m[k]}));
+  },[mias,modo]);
+
+  const filas = eje==="linea"?LINES:POS.map(String);
+  const filtro=(s,i)=> eje==="linea"? s.line===i : s.pos===i;
+  const todos = cubos.reduce((a,c)=>a.concat(c.shots),[]);
+
+  if(!cubos.length) return <p className="hint">Todavía no hay jornadas para comparar.</p>;
+
+  return (
+    <React.Fragment>
+      <div className="chips" style={{marginBottom:8}}>
+        <button className={"chip"+(eje==="linea"?" on":"")} onClick={()=>setEje("linea")}>Línea</button>
+        <button className={"chip"+(eje==="posicion"?" on":"")} onClick={()=>setEje("posicion")}>Posición</button>
+      </div>
+      <div className="chips" style={{marginBottom:12}}>
+        {[["dia","Día"],["semana","Semana"],["mes","Mes"]].map(([v,l])=>
+          <button key={v} className={"chip"+(modo===v?" on":"")} onClick={()=>setModo(v)}>{l}</button>)}
+      </div>
+      <div style={{overflowX:"auto"}}>
+      <table className="tbl">
+        <thead><tr><th className="rowh"></th>
+          {cubos.map(c=><th key={c.k}>{c.label}</th>)}
+          <th className="tot">Prom</th></tr></thead>
+        <tbody>
+          {filas.map((L,i)=>{
+            const f=agg(todos,s=>filtro(s,i));
+            return (
+              <tr key={L}>
+                <th className="rowh">{L}</th>
+                {cubos.map((c,ci)=>{
+                  const d=agg(c.shots,s=>filtro(s,i));
+                  return <td key={c.k} className={ci===cubos.length-1?"last":""}>{d.t?pct(d.m,d.t):"—"}</td>;
+                })}
+                <td className="tot">{f.t?pct(f.m,f.t):"—"}</td>
+              </tr>
+            );
+          })}
+          <tr className="totrow">
+            <th className="rowh tot">Prom</th>
+            {cubos.map(c=>{
+              const d=agg(c.shots,()=>true);
+              return <td key={c.k}>{d.t?pct(d.m,d.t):"—"}</td>;
+            })}
+            <td className="gt">{todos.length?pct(todos.filter(s=>s.made).length,todos.length):"—"}</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+      <p className="hint" style={{marginTop:10}}>Últimos {cubos.length} periodos de {player}. El promedio de la derecha
+        es de lo que se ve, y sale de sumar encestes y tiros, no de promediar porcentajes.</p>
+    </React.Fragment>
   );
 }
 function Lineas({shots}){
@@ -644,7 +861,7 @@ function Lineas({shots}){
 }
 
 /* ---------- resumen de jornada ---------- */
-function Summary({session,onHome,toast,record}){
+function Summary({session,sessions,onHome,toast,record}){
   const [det,setDet]=useState(null);
   const st=sessionStats(session);
   const tl=ftSplit(session.shots,session.ftTarget||10);
@@ -705,7 +922,10 @@ function Summary({session,onHome,toast,record}){
         <p className="hint" style={{marginTop:6}}>Toca cualquier punto para ver su detalle.</p>
       </div>
 
-      <div className="card"><h2>Efectividad por línea</h2><Lineas shots={tiros}/></div>
+      <div className="card">
+        <h2>Evolución</h2>
+        <Evolucion sessions={sessions} player={session.playerName}/>
+      </div>
       <button className="btn btn-quiet" onClick={bajar}>Descargar CSV de esta jornada</button>
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
 
@@ -823,11 +1043,201 @@ function Ajustes({onHome,toast,onSync,pendientes}){
   );
 }
 
+/* ---------- partido: captura ---------- */
+function Juego({game,setGame,onFinish,onAbort}){
+  const [per,setPer]=useState(1);
+  const [pend,setPend]=useState(null);
+  const [ask,setAsk]=useState(null);
+  const wake=useRef(null);
+
+  useEffect(()=>{let a=true;(async()=>{try{if(navigator.wakeLock){const w=await navigator.wakeLock.request("screen");a?wake.current=w:w.release()}}catch(e){}})();
+    return()=>{a=false;try{wake.current&&wake.current.release()}catch(e){}}},[]);
+
+  const tocar=e=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    const x=(e.clientX-r.left)*(328/r.width), y=(e.clientY-r.top)*(392/r.height);
+    if(x<8||x>320||y<28||y>362) return;
+    setPend({x:Math.round(x*10)/10,y:Math.round(y*10)/10,zona:zonaDe(x,y),foul:false,res:null,ftM:0,ftA:0});
+    buzz(12);
+  };
+
+  const guardar=s=>{
+    setGame(g=>({...g,shots:[...g.shots,{...s,periodo:per,t:Date.now()}]}));
+    setPend(null); buzz(s.made?28:[14,55,14]);
+  };
+  const resultado=made=>{
+    const s={...pend,made};
+    if(!pend.foul) return guardar(s);
+    const libres = made?1:(esTriple(pend.zona)?3:2);
+    setPend({...s,ftA:libres,ftM:libres});
+  };
+  const deshacer=()=>setGame(g=>({...g,shots:g.shots.slice(0,-1)}));
+
+  const bs=boxScore(game.shots);
+  const esperaLibres = pend&&pend.res!==null&&pend.foul&&pend.made!==undefined;
+
+  return (
+    <div className="cap">
+      <div className="cap-top" style={{alignItems:"flex-start"}}>
+        <div className="cap-id">
+          <div className="big" style={{fontSize:22}}>{game.playerName} <span style={{color:"var(--ink-soft)",fontWeight:400,fontSize:15}}>vs {game.rival}</span></div>
+          {game.liga&&<div className="sub">{game.liga}</div>}
+          <div className="chips" style={{marginTop:8,gap:6}}>
+            {[1,2,3,4,"PR"].map(p=>(
+              <button key={p} className={"chip"+(per===p?" on":"")} style={{padding:"3px 11px",fontSize:13}}
+                      onClick={()=>setPer(p)}>{p}</button>))}
+          </div>
+        </div>
+        <div className="cap-run">
+          <div className="r1">{bs.tc.m}/{bs.tc.t}</div>
+          <div className="r2">{bs.pts} puntos</div>
+        </div>
+      </div>
+
+      <div style={{flex:1,minHeight:0,overflow:"hidden",display:"flex",alignItems:"center",padding:"6px 10px"}}>
+        <Court juego tiros={game.shots} marca={pend} onTap={tocar}/>
+      </div>
+
+      <div className="cap-bar">
+        <button onClick={deshacer} disabled={!game.shots.length}>Deshacer</button>
+        <button onClick={()=>setAsk("exit")}>Terminar</button>
+      </div>
+
+      {pend&&pend.ftA===0&&
+        <div className="sheet" onClick={()=>setPend(null)}>
+          <div className="sheet-in" onClick={e=>e.stopPropagation()}>
+            <h2>{ZONA_NOM[pend.zona]}</h2>
+            <p className="hint">{distM(pend.x,pend.y).toFixed(1)} m del aro · {esTriple(pend.zona)?"vale 3":"vale 2"}</p>
+            <div style={{display:"flex",gap:8,margin:"14px 0 10px"}}>
+              <button className="btn" style={{background:"var(--made)",color:"#fff"}} onClick={()=>resultado(true)}>Anotó</button>
+              <button className="btn" style={{background:"var(--miss)",color:"#fff",marginTop:0}} onClick={()=>resultado(false)}>Falló</button>
+            </div>
+            <button className="btn btn-quiet" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                    onClick={()=>setPend({...pend,foul:!pend.foul})}>
+              <span>Recibió falta</span>
+              <span style={{width:44,height:26,borderRadius:20,background:pend.foul?"var(--gold)":"var(--line)",position:"relative",display:"inline-block"}}>
+                <span style={{position:"absolute",top:3,left:pend.foul?21:3,width:20,height:20,borderRadius:"50%",background:"var(--surface)"}}/>
+              </span>
+            </button>
+            <p className="hint" style={{marginTop:10}}>Toca otro lugar de la cancha para corregir la posición.</p>
+          </div>
+        </div>}
+
+      {pend&&pend.ftA>0&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>Tiros libres</h2>
+          <p className="hint">{ZONA_NOM[pend.zona]} · {pend.made?"anotó con falta":"falló con falta"}</p>
+          <div className="stepper" style={{marginTop:16}}>
+            <button className="step-btn" onClick={()=>setPend({...pend,ftM:Math.max(0,pend.ftM-1)})}>−</button>
+            <div className="step-val">{pend.ftM}</div>
+            <button className="step-btn" onClick={()=>setPend({...pend,ftM:Math.min(pend.ftA,pend.ftM+1)})}>+</button>
+            <div className="step-side">anotados<br/>de {pend.ftA} intento{pend.ftA===1?"":"s"}</div>
+          </div>
+          <div className="stepper" style={{marginTop:10}}>
+            <button className="step-btn" onClick={()=>setPend({...pend,ftA:Math.max(1,pend.ftA-1),ftM:Math.min(pend.ftM,Math.max(1,pend.ftA-1))})}>−</button>
+            <div className="step-val">{pend.ftA}</div>
+            <button className="step-btn" onClick={()=>setPend({...pend,ftA:Math.min(4,pend.ftA+1)})}>+</button>
+            <div className="step-side">intentos<br/>concedidos</div>
+          </div>
+          <button className="btn btn-primary" style={{marginTop:16}} onClick={()=>guardar(pend)}>
+            Guardar la jugada · {puntosDe(pend)} punto{puntosDe(pend)===1?"":"s"}
+          </button>
+          <button className="btn btn-quiet" onClick={()=>setPend(null)}>Cancelar</button>
+        </div></div>}
+
+      {ask==="exit"&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>¿Terminar el partido?</h2>
+          <p className="hint">Se guardan {bs.tc.t} tiros y {bs.pts} puntos.</p>
+          <button className="btn btn-primary" style={{marginTop:14}} onClick={onFinish}>Guardar y ver resultados</button>
+          <button className="btn btn-quiet" onClick={()=>setAsk(null)}>Seguir capturando</button>
+          <button className="btn btn-danger" onClick={onAbort}>Descartar el partido</button>
+        </div></div>}
+    </div>
+  );
+}
+
+/* ---------- partido: resumen ---------- */
+function JuegoResumen({game,games,onHome,toast}){
+  const [vista,setVista]=useState("partido");
+  const suyos=games.filter(g=>g.playerName===game.playerName);
+  const deLiga=suyos.filter(g=>g.liga===game.liga);
+  const fuente = vista==="partido"?[game] : vista==="liga"?deLiga : suyos;
+  const shots = fuente.reduce((a,g)=>a.concat(g.shots),[]);
+  const bs=boxScore(shots), zs=porZona(shots);
+
+  const csv=()=>{
+    const head="jugador,partido_id,fecha,rival,liga,periodo,x,y,distancia_m,zona,triple,enceste,falta,tl_anotados,tl_intentos,puntos";
+    return head+"\n"+game.shots.map(s=>[JSON.stringify(game.playerName),game.id,new Date(s.t).toISOString(),
+      JSON.stringify(game.rival),JSON.stringify(game.liga||""),s.periodo,s.x,s.y,distM(s.x,s.y).toFixed(2),s.zona,esTriple(s.zona)?1:0,
+      s.made?1:0,s.foul?1:0,s.ftM||0,s.ftA||0,puntosDe(s)].join(",")).join("\n");
+  };
+  const bajar=async()=>{
+    const nombre=`partido_${String(game.playerName).replace(/\s+/g,"_")}_${String(game.startedAt).slice(0,10)}.csv`;
+    let dl=null; try{ dl=window.claude?await window.claude.use("downloads"):null; }catch(e){}
+    if(dl){try{await dl.save({filename:nombre,data:csv()});toast("CSV guardado.");return}catch(e){if(e&&e.code==="declined")return}}
+    try{await navigator.clipboard.writeText(csv());toast("CSV copiado al portapapeles.")}catch(e){toast("No se pudo exportar aquí.")}
+  };
+
+  return (
+    <div className="wrap">
+      <div className="masthead"><div>
+        <h1 style={{fontSize:30}}>{game.playerName}</h1>
+        <p>vs {game.rival}{game.liga?" · "+game.liga:""}<br/>{fecha(game.startedAt)}</p>
+      </div></div>
+
+      <div className="card">
+        <div className="chips" style={{marginBottom:12}}>
+          <button className={"chip"+(vista==="partido"?" on":"")} onClick={()=>setVista("partido")}>Este partido</button>
+          {game.liga&&<button className={"chip"+(vista==="liga"?" on":"")} onClick={()=>setVista("liga")}>{game.liga} · {deLiga.length}</button>}
+          <button className={"chip"+(vista==="todos"?" on":"")} onClick={()=>setVista("todos")}>Todos · {suyos.length}</button>
+        </div>
+        <div className="headline">
+          <span className="pct">{bs.pts}</span>
+          <span className="meta">puntos<br/>{bs.pps.toFixed(2)} por tiro de campo</span>
+        </div>
+        <div className="stats" style={{marginTop:10}}>
+          <div className="stat"><div className="n">{bs.tc.t?pct(bs.tc.m,bs.tc.t)+"%":"—"}</div><div className="l">campo {bs.tc.m}/{bs.tc.t}</div></div>
+          <div className="stat"><div className="n">{bs.t3.t?pct(bs.t3.m,bs.t3.t)+"%":"—"}</div><div className="l">triples {bs.t3.m}/{bs.t3.t}</div></div>
+          <div className="stat"><div className="n">{bs.tl.t?pct(bs.tl.m,bs.tl.t)+"%":"—"}</div><div className="l">libres {bs.tl.m}/{bs.tl.t}</div></div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>Mapa de tiros</h2>
+        <Court juego zonas={zs} tiros={shots}/>
+        <p className="hint" style={{marginTop:6}}>Relleno, anotado. Hueco, fallado. El número de cada zona son encestes entre tiros;
+          las zonas con menos de {MIN_ZONA} tiros quedan en gris porque su porcentaje todavía no es confiable.</p>
+      </div>
+
+      <div className="card">
+        <h2>Por zona</h2>
+        {ZONAS.map(z=>{
+          const d=zs[z], p=d.t?d.m/d.t:0;
+          return (
+            <div className="bar-row" key={z}>
+              <span style={{width:96,fontSize:13.5,lineHeight:1.25}}>{ZONA_NOM[z]}</span>
+              <span className="bar-track"><span className="bar-fill" style={{width:(d.t?p*100:0)+"%",background:d.t>=MIN_ZONA?heat(p):"var(--line-strong)"}}/></span>
+              <span className="v">{d.t?pct(d.m,d.t)+"%":"—"}</span>
+              <span style={{width:42,fontSize:12,color:"var(--ink-soft)",textAlign:"right"}}>{d.m}/{d.t}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <button className="btn btn-quiet" onClick={bajar}>Descargar CSV del partido</button>
+      <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
+    </div>
+  );
+}
+
 /* ---------- app ---------- */
 function App(){
   const [players,setPlayers]=useState(()=>load(K_PLAYERS,[]));
   const [sessions,setSessions]=useState(()=>load(K_SESSIONS,[]));
   const [pending,setPending]=useState(()=>load(K_PEND,[]));
+  const [games,setGames]=useState(()=>load(K_GAMES,[]));
+  const [game,setGame]=useState(null);
   const [playerId,setPlayerId]=useState(()=>load(K_PLAYERS,[])[0]||null);
   const [cfg,setCfg]=useState(()=>load(K_CFG,{positions:[0,1,2,3,4],target:5,ftTarget:10}));
   const [screen,setScreen]=useState("home");
@@ -839,8 +1249,8 @@ function App(){
   useEffect(()=>{save(K_CFG,cfg)},[cfg]);
 
   const nombres=useMemo(()=>{
-    const s=new Set(players); sessions.forEach(x=>s.add(x.playerName)); return Array.from(s);
-  },[players,sessions]);
+    const s=new Set(players); sessions.forEach(x=>s.add(x.playerName)); games.forEach(x=>s.add(x.playerName)); return Array.from(s);
+  },[players,sessions,games]);
 
   const sincronizar=useCallback(async()=>{
     if(!syncUrl()){setOnline(false);return}
@@ -850,7 +1260,8 @@ function App(){
     setPending(quedan); save(K_PEND,quedan);
     try{
       const remotas=await pullRemote();
-      if(remotas){ const m=mergeSessions(load(K_SESSIONS,[]),remotas); setSessions(m); save(K_SESSIONS,m); }
+      if(remotas&&remotas.jornadas){ const m=mergeSessions(load(K_SESSIONS,[]),remotas.jornadas); setSessions(m); save(K_SESSIONS,m); }
+      if(remotas&&remotas.juegos){ const g=mergeSessions(load(K_GAMES,[]),remotas.juegos); setGames(g); save(K_GAMES,g); }
     }catch(e){}
   },[]);
   useEffect(()=>{sincronizar()},[sincronizar]);
@@ -866,6 +1277,21 @@ function App(){
       positions:cfg.positions.slice(), target:cfg.target, ftTarget:cfg.ftTarget, shots:[]});
     setScreen("capture");
   };
+  const startJuego=(rival,liga)=>{
+    if(!playerId) return;
+    setGame({id:"g"+Date.now()+"-"+Math.random().toString(36).slice(2,6),
+      playerName:playerId, rival, liga, startedAt:new Date().toISOString(), shots:[]});
+    setScreen("juego");
+  };
+  const finishJuego=async()=>{
+    const g={...game,endedAt:new Date().toISOString()};
+    const next=mergeSessions([g],games); setGames(next); save(K_GAMES,next);
+    setGame(g); setScreen("juegoResumen");
+    if(syncUrl()){
+      try{ await pushRemote(g); toast("Partido guardado en la hoja de Drive."); }
+      catch(e){ const q=[...pending,g]; setPending(q); save(K_PEND,q); toast("Guardado en el teléfono. Se subirá al recuperar señal."); }
+    }
+  };
   const finish=async()=>{
     const s={...session,endedAt:new Date().toISOString()};
     const next=mergeSessions([s],sessions); setSessions(next); save(K_SESSIONS,next);
@@ -878,21 +1304,29 @@ function App(){
 
   const record = session? marcaHistorica(sessions,session.playerName,session.id) : null;
 
+  if(screen==="juego"&&game)
+    return <Juego game={game} setGame={setGame} onFinish={finishJuego}
+                  onAbort={()=>{setGame(null);setScreen("home")}}/>;
+
   if(screen==="capture"&&session)
     return <Capture session={session} setSession={setSession} onFinish={finish} record={record}
                     onAbort={()=>{setSession(null);setScreen("home")}}/>;
 
   const chrome=c=><React.Fragment>{c}{msg&&<div className="toast">{msg}</div>}</React.Fragment>;
   if(screen==="summary"&&session)
-    return chrome(<Summary session={session} record={record} onHome={()=>{setSession(null);setScreen("home")}} toast={toast}/>);
+    return chrome(<Summary session={session} sessions={sessions} record={record} onHome={()=>{setSession(null);setScreen("home")}} toast={toast}/>);
+  if(screen==="juegoResumen"&&game)
+    return chrome(<JuegoResumen game={game} games={games} toast={toast}
+                                onHome={()=>{setGame(null);setScreen("home")}}/>);
   if(screen==="analisis")
     return chrome(<Analisis sessions={sessions} players={nombres} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")
     return chrome(<Ajustes onHome={()=>setScreen("home")} toast={toast} pendientes={pending.length} onSync={sincronizar}/>);
   return chrome(
     <Home players={nombres} addPlayer={addPlayer} playerId={playerId} setPlayerId={setPlayerId}
-          cfg={cfg} setCfg={setCfg} sessions={sessions} onStart={start}
+          cfg={cfg} setCfg={setCfg} sessions={sessions} games={games} onStart={start} onJuego={startJuego}
           onOpen={s=>{setSession(s);setScreen("summary")}}
+          onOpenJuego={g=>{setGame(g);setScreen("juegoResumen")}}
           onAnalisis={()=>setScreen("analisis")} onAjustes={()=>setScreen("ajustes")}
           syncState={pending.length?"pend":online?"on":"off"}/>);
 }

@@ -97,6 +97,12 @@ Por eso puedes capturar en un gimnasio sin datos sin perder nada.
 
 **`Tiros`** — una fila por tiro: jornada, jugador, fecha, fase (`LINEA` o `TL`), línea, posición, número de intento, resultado (1/0) y segundos desde el tiro anterior.
 
+**`Juegos`** — una fila por partido: identificador, jugador, fecha, rival, liga, puntos, tiros de campo, triples y tiros libres.
+
+**`Tiros_Juego`** — una fila por tiro de partido: partido, jugador, fecha, periodo, rival, liga, coordenadas, distancia en metros, zona, si fue triple, resultado, falta, tiros libres y puntos de la jugada.
+
+La liga permite separar el rendimiento entre los distintos equipos y torneos en los que juega la misma jugadora. En la pantalla de resultados del partido puedes alternar entre este partido, el acumulado de esa liga, y el acumulado de todos sus partidos.
+
 La de `Tiros` es la tabla de hechos: conéctala directo a Power BI para tendencias por posición, comparativos entre jugadores o cruces de efectividad contra ritmo. La de `Jornadas` sirve como dimensión de sesión.
 
 Para bajarla como Excel: **Archivo → Descargar → Microsoft Excel**.
@@ -110,6 +116,9 @@ Para bajarla como Excel: **Archivo → Descargar → Microsoft Excel**.
 - **La pausa no cuenta.** El tiempo de recuperar el balón se resta del ritmo.
 - **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo. Ese porcentaje es real pero viene de una serie que no se cerró.
 - **Los tiros libres se miden en dos partes.** La efectividad de los primeros diez encestes es el dato comparable entre jornadas; la racha máxima consecutiva es un logro aparte y no debe mezclarse con ese porcentaje.
+- **Las zonas del modo partido** son las cinco estándar de la NBA adaptadas a medidas FIBA: área restringida, pintura, media distancia, triple de esquina y triple sobre el arco. Una zona con menos de seis tiros acumulados se muestra en gris porque su porcentaje no significa nada todavía.
+- **Compara puntos por tiro, no puntos totales.** Quien más tira siempre anota más.
+- **Los promedios de fila y columna** salen de sumar encestes y tiros reales, nunca de promediar los porcentajes de las celdas. Una posición donde se tiró el doble pesa el doble, como debe ser.
 - **No compares días con distintas posiciones.** Un 80% de un día de posiciones 1 y 2 no es comparable contra un 60% de un día de posición 5. Para eso está el detalle por celda.
 
 ---

@@ -97,9 +97,9 @@ Por eso puedes capturar en un gimnasio sin datos sin perder nada.
 
 **`Tiros`** — una fila por tiro: jornada, jugador, fecha, fase (`LINEA` o `TL`), línea, posición, número de intento, resultado (1/0) y segundos desde el tiro anterior.
 
-**`Juegos`** — una fila por partido: identificador, jugador, fecha, rival, liga, puntos, tiros de campo, triples y tiros libres.
+**`Juegos`** — una fila por partido: identificador, jugador, fecha, rival, liga, puntos, tiros de campo, triples, tiros libres, asistencias y tiros bloqueados.
 
-**`Tiros_Juego`** — una fila por tiro de partido: partido, jugador, fecha, periodo, rival, liga, coordenadas, distancia en metros, zona, si fue triple, resultado, falta, tiros libres y puntos de la jugada.
+**`Tiros_Juego`** — una fila por tiro de partido: partido, jugador, fecha, periodo, rival, liga, coordenadas, distancia en metros, zona, si fue triple, resultado, si fue bloqueado, falta, tiros libres y puntos de la jugada.
 
 La liga permite separar el rendimiento entre los distintos equipos y torneos en los que juega la misma jugadora. En la pantalla de resultados del partido puedes alternar entre este partido, el acumulado de esa liga, y el acumulado de todos sus partidos.
 
@@ -115,7 +115,9 @@ Para bajarla como Excel: **Archivo → Descargar → Microsoft Excel**.
 - **El ritmo solo mide intervalos dentro de un mismo punto.** El primer tiro después de cambiar de posición incluye el desplazamiento del jugador y se excluye. También se descartan intervalos mayores a dos minutos.
 - **La pausa no cuenta.** El tiempo de recuperar el balón se resta del ritmo.
 - **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo. Ese porcentaje es real pero viene de una serie que no se cerró.
-- **Los tiros libres se miden en dos partes.** La efectividad de los primeros diez encestes es el dato comparable entre jornadas; la racha máxima consecutiva es un logro aparte y no debe mezclarse con ese porcentaje.
+- **Los tiros libres son diez intentos fijos.** Caigan o no, siempre se cuentan diez, así que 8 de 10 es 80%. Ese es el dato comparable entre jornadas. Si después quiere seguir tirando, esa racha se mide aparte y no toca el porcentaje.
+- **Un tiro bloqueado cuenta como intento fallado**, igual que en la estadística oficial: suma al denominador y no al numerador. Se guarda marcado aparte porque habla de selección de tiro, no de puntería.
+- **La cancha se guarda siempre con el aro a la izquierda.** El botón de voltear solo cambia cómo se dibuja en pantalla, para que puedas capturar desde el lado en que estás sentado y cambiar al medio tiempo sin partir el mapa acumulado.
 - **Las zonas del modo partido** son las cinco estándar de la NBA adaptadas a medidas FIBA: área restringida, pintura, media distancia, triple de esquina y triple sobre el arco. Una zona con menos de seis tiros acumulados se muestra en gris porque su porcentaje no significa nada todavía.
 - **Compara puntos por tiro, no puntos totales.** Quien más tira siempre anota más.
 - **Los promedios de fila y columna** salen de sumar encestes y tiros reales, nunca de promediar los porcentajes de las celdas. Una posición donde se tiró el doble pesa el doble, como debe ser.

@@ -225,13 +225,10 @@ function sessionStats(s){
 
 function ftSplit(shots,target){
   const tl=shots.filter(isFT);
-  let m=0,corte=-1;
-  tl.forEach((s,i)=>{ if(s.made){ m++; if(m===target&&corte<0) corte=i; } });
-  const first = corte<0?tl:tl.slice(0,corte+1);
-  const extra = corte<0?[]:tl.slice(corte+1);
+  const first=tl.slice(0,target), extra=tl.slice(target);
   let r=0,best=0; tl.forEach(s=>{ if(s.made){r++;best=Math.max(best,r)} else r=0 });
   return {tl:{t:tl.length,m:tl.filter(x=>x.made).length},
-          first:{t:first.length,m:first.filter(x=>x.made).length,completo:corte>=0},
+          first:{t:first.length,m:first.filter(x=>x.made).length,completo:tl.length>=target},
           extra:{t:extra.length,m:extra.filter(x=>x.made).length},
           racha:best};
 }
@@ -309,11 +306,12 @@ function Marca({size=44}){
 
 /* ---------- cancha ---------- */
 function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=null,onPick=null,
-                juego=false,zonas=null,tiros=null,marca=null,onTap=null}){
+                juego=false,zonas=null,tiros=null,marca=null,onTap=null,flip=false}){
   const zf=z=>{ const d=zonas&&zonas[z]; return (d&&d.t>=MIN_ZONA)?heat(d.m/d.t):"var(--surface-2)"; };
   return (
     <svg className={"court"+(onTap?" pick":"")} viewBox="0 0 328 392" role="img"
          onClick={onTap} aria-label={juego?"Media cancha para marcar el lugar del tiro":"Media cancha con las cinco líneas de tiro"}>
+      <g transform={flip?"translate(328,0) scale(-1,1)":undefined}>
       {zonas&&<g opacity="0.9">
         <rect x="10" y="30" width="308" height="330" fill={zf("ATB")}/>
         <rect x="10" y="30" width="67" height="20" fill={zf("C3")}/>
@@ -322,10 +320,7 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
         <rect x="10" y="141" width="128" height="108" fill={zf("PAINT")}/>
         <path d="M45 167.5 A 27.5 27.5 0 0 1 45 222.5 Z" fill={zf("RA")}/>
       </g>}
-      {zonas&&[["RA",66,196],["PAINT",104,128],["MID",158,324],["C3",44,45],["ATB",252,84]].map(([z,x,y])=>{
-        const d=zonas[z];
-        return <text key={z} className={"zlab"+(d&&d.t>=MIN_ZONA?"":" off")} x={x} y={y}>{d&&d.t?d.m+"/"+d.t:""}</text>;
-      })}
+
       <rect className="c-line" x="10" y="30" width="308" height="330"/>
       <path className="c-line" d="M318 155 A 40 40 0 0 0 318 235"/>
       <rect className="c-line" x="10" y="141" width="128" height="108"/>
@@ -370,9 +365,25 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
           </g>
         );
       })}
-      {tiros&&tiros.map((s,i)=> s.made
-        ? <circle key={i} cx={s.x} cy={s.y} r="7" fill="#FFFFFF" stroke="#16181c" strokeWidth="1.4"/>
-        : <circle key={i} cx={s.x} cy={s.y} r="7" fill="none" stroke="#16181c" strokeWidth="2.2"/>)}
+      {tiros&&tiros.map((s,i)=>{
+        if(s.made) return (<g key={i}>
+          <circle cx={s.x} cy={s.y} r="9" fill="var(--paper)"/>
+          <circle cx={s.x} cy={s.y} r="6.5" fill="var(--ink)"/>
+        </g>);
+        const a=6;
+        return (<g key={i}>
+          {s.blocked&&<circle cx={s.x} cy={s.y} r="11" fill="none" stroke="var(--paper)" strokeWidth="5.5"/>}
+          <g stroke="var(--paper)" strokeWidth="6" strokeLinecap="round">
+            <line x1={s.x-a} y1={s.y-a} x2={s.x+a} y2={s.y+a}/>
+            <line x1={s.x+a} y1={s.y-a} x2={s.x-a} y2={s.y+a}/>
+          </g>
+          {s.blocked&&<circle cx={s.x} cy={s.y} r="11" fill="none" stroke="var(--ink)" strokeWidth="2.2"/>}
+          <g stroke="var(--ink)" strokeWidth="2.8" strokeLinecap="round">
+            <line x1={s.x-a} y1={s.y-a} x2={s.x+a} y2={s.y+a}/>
+            <line x1={s.x+a} y1={s.y-a} x2={s.x-a} y2={s.y+a}/>
+          </g>
+        </g>);
+      })}
       {marca&&<g>
         <circle cx={marca.x} cy={marca.y} r="16" fill="none" stroke="var(--gold)" strokeWidth="2.5"/>
         <line x1={marca.x} y1={marca.y-22} x2={marca.x} y2={marca.y-10} stroke="var(--gold)" strokeWidth="2.5"/>
@@ -380,6 +391,11 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
         <line x1={marca.x-22} y1={marca.y} x2={marca.x-10} y2={marca.y} stroke="var(--gold)" strokeWidth="2.5"/>
         <line x1={marca.x+10} y1={marca.y} x2={marca.x+22} y2={marca.y} stroke="var(--gold)" strokeWidth="2.5"/>
       </g>}
+      </g>
+      {zonas&&[["RA",66,196],["PAINT",104,128],["MID",158,324],["C3",44,45],["ATB",252,84]].map(([z,x,y])=>{
+        const d=zonas[z];
+        return <text key={z} className={"zlab"+(d&&d.t>=MIN_ZONA?"":" off")} x={flip?328-x:x} y={y}>{d&&d.t?d.m+"/"+d.t:""}</text>;
+      })}
     </svg>
   );
 }
@@ -389,6 +405,7 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
   const [nuevo,setNuevo]=useState("");
   const [rival,setRival]=useState("");
   const [liga,setLiga]=useState("");
+  const [lado,setLado]=useState("izq");
   const [askJuego,setAskJuego]=useState(false);
   const ligas=Array.from(new Set(games.map(g=>g.liga).filter(Boolean)));
   const togglePos=j=>{
@@ -458,8 +475,33 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
               <div className="chips" style={{marginTop:8}}>
                 {ligas.map(l=><button key={l} className={"chip"+(liga===l?" on":"")} onClick={()=>setLiga(l)}>{l}</button>)}
               </div>}
-            <button className="btn btn-primary" style={{marginTop:12}}
-                    onClick={()=>{setAskJuego(false);onJuego(rival.trim()||"Rival",liga.trim()||"Sin liga")}}>Empezar el partido</button>
+            <div style={{color:"var(--ink)",fontSize:14,fontWeight:600,margin:"15px 0 7px"}}>¿De qué lado atacan?</div>
+            <div style={{display:"flex",gap:9}}>
+              {[["izq","Aro a la izquierda"],["der","Aro a la derecha"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setLado(v)} style={{flex:1,padding:8,borderRadius:11,
+                        border:lado===v?"2.5px solid var(--accent)":"1.5px solid var(--line)",
+                        background:lado===v?"color-mix(in srgb,var(--accent) 10%,transparent)":"transparent"}}>
+                  <svg viewBox="0 0 120 84" style={{width:"100%",display:"block"}}>
+                    <rect x="4" y="4" width="112" height="76" fill="var(--surface)" stroke="var(--line-strong)" strokeWidth="1.4"/>
+                    {v==="izq"?<React.Fragment>
+                      <rect x="4" y="27" width="40" height="30" fill="none" stroke="var(--line-strong)" strokeWidth="1"/>
+                      <path d="M4 12 L14 12 A 42 42 0 0 1 14 72 L4 72" fill="none" stroke="var(--line-strong)" strokeWidth="1.2"/>
+                      <line x1="12" y1="36" x2="12" y2="48" stroke={lado===v?"var(--accent)":"var(--ink-soft)"} strokeWidth="2.2"/>
+                      <circle cx="16" cy="42" r="2.6" fill="none" stroke={lado===v?"var(--accent)":"var(--ink-soft)"} strokeWidth="1.6"/>
+                    </React.Fragment>:<React.Fragment>
+                      <rect x="76" y="27" width="40" height="30" fill="none" stroke="var(--line-strong)" strokeWidth="1"/>
+                      <path d="M116 12 L106 12 A 42 42 0 0 0 106 72 L116 72" fill="none" stroke="var(--line-strong)" strokeWidth="1.2"/>
+                      <line x1="108" y1="36" x2="108" y2="48" stroke={lado===v?"var(--accent)":"var(--ink-soft)"} strokeWidth="2.2"/>
+                      <circle cx="104" cy="42" r="2.6" fill="none" stroke={lado===v?"var(--accent)":"var(--ink-soft)"} strokeWidth="1.6"/>
+                    </React.Fragment>}
+                  </svg>
+                  <div style={{textAlign:"center",fontSize:12.5,marginTop:6,
+                               color:lado===v?"var(--accent)":"var(--ink-soft)",fontWeight:lado===v?600:400}}>{l}</div>
+                </button>))}
+            </div>
+            <p className="hint" style={{marginTop:8}}>Puedes voltear la cancha en cualquier momento, al cambio de canasta.</p>
+            <button className="btn btn-primary" style={{marginTop:14}}
+                    onClick={()=>{setAskJuego(false);onJuego(rival.trim()||"Rival",liga.trim()||"Sin liga",lado)}}>Empezar el partido</button>
             <button className="btn btn-quiet" onClick={()=>setAskJuego(false)}>Cancelar</button>
           </div>
         </div>}
@@ -522,7 +564,7 @@ function Capture({session,setSession,onFinish,onAbort,record}){
   const target = ftPhase?session.ftTarget:session.target;
   const cur = session.shots.filter(s=>s.line===spot.line&&s.pos===spot.pos);
   const hechos=cur.length, mCur=cur.filter(s=>s.made).length;
-  const listo=mCur>=target && !(ftPhase&&tlLibre);
+  const listo=(ftPhase?hechos>=target:mCur>=target) && !(ftPhase&&tlLibre);
   const ultimo=hechos?cur[hechos-1]:null;
   let rachaViva=0; for(let i=hechos-1;i>=0;i--){ if(cur[i].made) rachaViva++; else break; }
   let rr=0,rachaMax=0; cur.forEach(s=>{ if(s.made){rr++;rachaMax=Math.max(rachaMax,rr)} else rr=0 });
@@ -601,16 +643,25 @@ function Capture({session,setSession,onFinish,onAbort,record}){
           <div className="big">{ftPhase?"Tiros libres":<React.Fragment>{LINES[spot.line]}<span style={{color:"var(--accent)"}}>{spot.pos+1}</span></React.Fragment>}</div>
           <div className="sub">{ftPhase&&tlLibre
             ? `racha viva: ${rachaViva} seguidos`
-            : `${mCur} de ${target} encestes · ${ftPhase?session.playerName:`punto ${cursor+1} de ${order.length}`}`}</div>
-          <div className="pips">
-            {Array.from({length:Math.min(target,12)}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}
-            {mCur>Math.min(target,12)&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{mCur-Math.min(target,12)}</span>}
-          </div>
-          {hechos>mCur&&
-            <div className="pips fail">
-              {Array.from({length:Math.min(hechos-mCur,12)}).map((_,i)=><span key={i} className="pip x"/>)}
-              {hechos-mCur>12&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{hechos-mCur-12}</span>}
-            </div>}
+            : ftPhase
+              ? `intento ${Math.min(hechos+1,target)} de ${target} · ${session.playerName}`
+              : `${mCur} de ${target} encestes · punto ${cursor+1} de ${order.length}`}</div>
+          {ftPhase&&!tlLibre
+            ? <div className="pips">
+                {Array.from({length:target}).map((_,i)=>(
+                  <span key={i} className={"pip"+(cur[i]?(cur[i].made?" m":" x"):"")}/>))}
+              </div>
+            : <React.Fragment>
+                <div className="pips">
+                  {Array.from({length:Math.min(target,12)}).map((_,i)=><span key={i} className={"pip"+(i<mCur?" m":"")}/>)}
+                  {mCur>Math.min(target,12)&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{mCur-Math.min(target,12)}</span>}
+                </div>
+                {hechos>mCur&&
+                  <div className="pips fail">
+                    {Array.from({length:Math.min(hechos-mCur,12)}).map((_,i)=><span key={i} className="pip x"/>)}
+                    {hechos-mCur>12&&<span style={{color:"var(--ink-soft)",fontSize:11.5,marginLeft:2}}>+{hechos-mCur-12}</span>}
+                  </div>}
+              </React.Fragment>}
         </div>
         <div className="cap-run">
           <div className="r1">{mCur}/{hechos}</div>
@@ -623,7 +674,9 @@ function Capture({session,setSession,onFinish,onAbort,record}){
       <div className="halves">
         <button className="half made" onClick={()=>tirar(true)} aria-label="Anotó">
           <span className="lbl">Anotó</span>
-          <span className="cnt">{ftPhase&&tlLibre?`${rachaViva} seguidos`:`faltan ${Math.max(0,target-mCur)}`}</span>
+          <span className="cnt">{ftPhase&&tlLibre?`${rachaViva} seguidos`
+            :ftPhase?`faltan ${Math.max(0,target-hechos)} tiros`
+            :`faltan ${Math.max(0,target-mCur)}`}</span>
         </button>
         <button className="half miss" onClick={()=>tirar(false)} aria-label="Falló">
           <span className="cnt">{hechos-mCur} fallado{hechos-mCur===1?"":"s"}</span><span className="lbl">Falló</span>
@@ -679,7 +732,7 @@ function Capture({session,setSession,onFinish,onAbort,record}){
       {ask==="preguntaTL"&&
         <div className="sheet"><div className="sheet-in">
           <h2>¿Cierran con tiros libres?</h2>
-          <p className="hint">Se miden los primeros {session.ftTarget} encestes. Si trae buena racha, puede seguir tirando después.</p>
+          <p className="hint">Se miden {session.ftTarget} intentos, caigan o no. Si trae buena racha, puede seguir tirando después.</p>
           {record&&
             <div className="record"><span className="r">{record.racha}</span>
               <span className="d">seguidos es la mejor marca de {session.playerName}<br/>{fecha(record.fecha)}</span></div>}
@@ -692,10 +745,13 @@ function Capture({session,setSession,onFinish,onAbort,record}){
 
       {ask==="tlDiez"&&
         <div className="sheet"><div className="sheet-in">
-          <h2>{session.ftTarget} encestes logrados</h2>
+          <h2>{session.ftTarget} tiros libres</h2>
           <div className="score-line">
             <span className="big">{marca10?pct(marca10.m,marca10.t):0}%</span>
-            <span className="side">{marca10&&marca10.m} encestes en {marca10&&marca10.t} tiros</span>
+            <span className="side">{marca10&&marca10.m} encestes<br/>en {marca10&&marca10.t} intentos</span>
+          </div>
+          <div className="pips" style={{marginBottom:12}}>
+            {cur.slice(0,target).map((s,i)=><span key={i} className={"pip "+(s.made?"m":"x")}/>)}
           </div>
           {record&&<p className="hint" style={{marginBottom:12}}>Mejor marca: {record.racha} seguidos · {fecha(record.fecha)}</p>}
           <button className="btn btn-primary" onClick={()=>{setTlLibre(true);setAsk(null)}}>Seguir tirando</button>
@@ -902,7 +958,7 @@ function Summary({session,sessions,onHome,toast,record}){
           <span className="meta">{st.tiro.m} encestes<br/>en {st.tiro.t} tiros</span>
         </div>
         <div className="stats" style={{marginTop:10}}>
-          <div className="stat"><div className="n">{tl.first.t?pct(tl.first.m,tl.first.t)+"%":"—"}</div><div className="l">primeros {session.ftTarget||10} libres {tl.first.t?`(${tl.first.m}/${tl.first.t})`:""}</div></div>
+          <div className="stat"><div className="n">{tl.first.t?pct(tl.first.m,tl.first.t)+"%":"—"}</div><div className="l">libres {tl.first.t?`(${tl.first.m}/${tl.first.t})`:""}</div></div>
           <div className="stat"><div className="n">{ritmo?ritmo.toFixed(1)+"s":"—"}</div><div className="l">entre tiros</div></div>
           <div className="stat"><div className="n">{tl.racha||"—"}</div><div className="l">racha en libres{tl.extra.t?` (+${tl.extra.t} extra)`:""}</div></div>
         </div>
@@ -1048,6 +1104,8 @@ function Juego({game,setGame,onFinish,onAbort}){
   const [per,setPer]=useState(1);
   const [pend,setPend]=useState(null);
   const [ask,setAsk]=useState(null);
+  const [flip,setFlip]=useState(game.lado==="der");
+  const [ed,setEd]=useState(null);
   const wake=useRef(null);
 
   useEffect(()=>{let a=true;(async()=>{try{if(navigator.wakeLock){const w=await navigator.wakeLock.request("screen");a?wake.current=w:w.release()}}catch(e){}})();
@@ -1055,9 +1113,10 @@ function Juego({game,setGame,onFinish,onAbort}){
 
   const tocar=e=>{
     const r=e.currentTarget.getBoundingClientRect();
-    const x=(e.clientX-r.left)*(328/r.width), y=(e.clientY-r.top)*(392/r.height);
+    const bruto=(e.clientX-r.left)*(328/r.width), y=(e.clientY-r.top)*(392/r.height);
+    const x=flip?328-bruto:bruto;
     if(x<8||x>320||y<28||y>362) return;
-    setPend({x:Math.round(x*10)/10,y:Math.round(y*10)/10,zona:zonaDe(x,y),foul:false,res:null,ftM:0,ftA:0});
+    setPend({x:Math.round(x*10)/10,y:Math.round(y*10)/10,zona:zonaDe(x,y),foul:false,blocked:false,ftM:0,ftA:0});
     buzz(12);
   };
 
@@ -1065,13 +1124,26 @@ function Juego({game,setGame,onFinish,onAbort}){
     setGame(g=>({...g,shots:[...g.shots,{...s,periodo:per,t:Date.now()}]}));
     setPend(null); buzz(s.made?28:[14,55,14]);
   };
-  const resultado=made=>{
-    const s={...pend,made};
+  const resultado=(made,blocked)=>{
+    const s={...pend,made,blocked:!!blocked};
     if(!pend.foul) return guardar(s);
     const libres = made?1:(esTriple(pend.zona)?3:2);
     setPend({...s,ftA:libres,ftM:libres});
   };
-  const deshacer=()=>setGame(g=>({...g,shots:g.shots.slice(0,-1)}));
+  const asistencia=()=>{
+    setGame(g=>({...g,assists:[...(g.assists||[]),{t:Date.now(),periodo:per}]}));
+    buzz([12,40,12]);
+  };
+  const deshacer=()=>{
+    setGame(g=>{
+      const ult=g.shots.length?g.shots[g.shots.length-1].t:-1;
+      const asis=g.assists||[];
+      const ua=asis.length?asis[asis.length-1].t:-1;
+      if(ua>ult) return {...g,assists:asis.slice(0,-1)};
+      if(g.shots.length) return {...g,shots:g.shots.slice(0,-1)};
+      return g;
+    });
+  };
 
   const bs=boxScore(game.shots);
   const esperaLibres = pend&&pend.res!==null&&pend.foul&&pend.made!==undefined;
@@ -1080,8 +1152,11 @@ function Juego({game,setGame,onFinish,onAbort}){
     <div className="cap">
       <div className="cap-top" style={{alignItems:"flex-start"}}>
         <div className="cap-id">
-          <div className="big" style={{fontSize:22}}>{game.playerName} <span style={{color:"var(--ink-soft)",fontWeight:400,fontSize:15}}>vs {game.rival}</span></div>
-          {game.liga&&<div className="sub">{game.liga}</div>}
+          <button onClick={()=>setEd({rival:game.rival,liga:game.liga||""})} style={{textAlign:"left",padding:0}}>
+            <div className="big" style={{fontSize:21}}>{game.playerName} <span style={{color:"var(--ink-soft)",fontWeight:400,fontSize:14}}>vs {game.rival}</span>
+              <span style={{color:"var(--accent)",fontSize:14,marginLeft:5}}>✎</span></div>
+            {game.liga&&<div className="sub">{game.liga}</div>}
+          </button>
           <div className="chips" style={{marginTop:8,gap:6}}>
             {[1,2,3,4,"PR"].map(p=>(
               <button key={p} className={"chip"+(per===p?" on":"")} style={{padding:"3px 11px",fontSize:13}}
@@ -1091,15 +1166,19 @@ function Juego({game,setGame,onFinish,onAbort}){
         <div className="cap-run">
           <div className="r1">{bs.tc.m}/{bs.tc.t}</div>
           <div className="r2">{bs.pts} puntos</div>
+          <div className="r3" style={{color:"var(--accent)"}}>{(game.assists||[]).length}</div>
+          <div className="r2">asistencias</div>
         </div>
       </div>
 
       <div style={{flex:1,minHeight:0,overflow:"hidden",display:"flex",alignItems:"center",padding:"6px 10px"}}>
-        <Court juego tiros={game.shots} marca={pend} onTap={tocar}/>
+        <Court juego flip={flip} tiros={game.shots} marca={pend} onTap={tocar}/>
       </div>
 
       <div className="cap-bar">
-        <button onClick={deshacer} disabled={!game.shots.length}>Deshacer</button>
+        <button onClick={asistencia} style={{color:"var(--accent)",fontWeight:600}}>Asistencia</button>
+        <button onClick={()=>setFlip(!flip)}>Voltear</button>
+        <button onClick={deshacer} disabled={!game.shots.length&&!(game.assists||[]).length}>Deshacer</button>
         <button onClick={()=>setAsk("exit")}>Terminar</button>
       </div>
 
@@ -1108,10 +1187,12 @@ function Juego({game,setGame,onFinish,onAbort}){
           <div className="sheet-in" onClick={e=>e.stopPropagation()}>
             <h2>{ZONA_NOM[pend.zona]}</h2>
             <p className="hint">{distM(pend.x,pend.y).toFixed(1)} m del aro · {esTriple(pend.zona)?"vale 3":"vale 2"}</p>
-            <div style={{display:"flex",gap:8,margin:"14px 0 10px"}}>
+            <div style={{display:"flex",gap:8,margin:"14px 0 9px"}}>
               <button className="btn" style={{background:"var(--made)",color:"#fff"}} onClick={()=>resultado(true)}>Anotó</button>
               <button className="btn" style={{background:"var(--miss)",color:"#fff",marginTop:0}} onClick={()=>resultado(false)}>Falló</button>
             </div>
+            <button className="btn btn-quiet" style={{borderColor:"var(--ink-soft)",fontWeight:600}}
+                    onClick={()=>resultado(false,true)}>Se lo bloquearon</button>
             <button className="btn btn-quiet" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}
                     onClick={()=>setPend({...pend,foul:!pend.foul})}>
               <span>Recibió falta</span>
@@ -1119,9 +1200,22 @@ function Juego({game,setGame,onFinish,onAbort}){
                 <span style={{position:"absolute",top:3,left:pend.foul?21:3,width:20,height:20,borderRadius:"50%",background:"var(--surface)"}}/>
               </span>
             </button>
-            <p className="hint" style={{marginTop:10}}>Toca otro lugar de la cancha para corregir la posición.</p>
+            <p className="hint" style={{marginTop:10}}>El bloqueo cuenta como intento fallado y se guarda aparte.
+              Toca otro lugar de la cancha para corregir la posición.</p>
           </div>
         </div>}
+
+      {ed&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>Datos del partido</h2>
+          <input type="text" value={ed.rival} placeholder="Rival" style={{width:"100%",marginTop:10}}
+                 onChange={e=>setEd({...ed,rival:e.target.value})}/>
+          <input type="text" value={ed.liga} placeholder="Liga o torneo" style={{width:"100%",marginTop:8}}
+                 onChange={e=>setEd({...ed,liga:e.target.value})}/>
+          <button className="btn btn-primary" style={{marginTop:12}}
+                  onClick={()=>{setGame(g=>({...g,rival:ed.rival.trim()||g.rival,liga:ed.liga.trim()}));setEd(null)}}>Guardar</button>
+          <button className="btn btn-quiet" onClick={()=>setEd(null)}>Cancelar</button>
+        </div></div>}
 
       {pend&&pend.ftA>0&&
         <div className="sheet"><div className="sheet-in">
@@ -1158,19 +1252,22 @@ function Juego({game,setGame,onFinish,onAbort}){
 }
 
 /* ---------- partido: resumen ---------- */
-function JuegoResumen({game,games,onHome,toast}){
+function JuegoResumen({game,games,onHome,toast,onEdit}){
   const [vista,setVista]=useState("partido");
+  const [ed,setEd]=useState(null);
   const suyos=games.filter(g=>g.playerName===game.playerName);
   const deLiga=suyos.filter(g=>g.liga===game.liga);
   const fuente = vista==="partido"?[game] : vista==="liga"?deLiga : suyos;
   const shots = fuente.reduce((a,g)=>a.concat(g.shots),[]);
+  const asis = fuente.reduce((a,g)=>a+((g.assists||[]).length),0);
+  const bloq = shots.filter(s=>s.blocked).length;
   const bs=boxScore(shots), zs=porZona(shots);
 
   const csv=()=>{
-    const head="jugador,partido_id,fecha,rival,liga,periodo,x,y,distancia_m,zona,triple,enceste,falta,tl_anotados,tl_intentos,puntos";
+    const head="jugador,partido_id,fecha,rival,liga,periodo,x,y,distancia_m,zona,triple,enceste,bloqueado,falta,tl_anotados,tl_intentos,puntos";
     return head+"\n"+game.shots.map(s=>[JSON.stringify(game.playerName),game.id,new Date(s.t).toISOString(),
       JSON.stringify(game.rival),JSON.stringify(game.liga||""),s.periodo,s.x,s.y,distM(s.x,s.y).toFixed(2),s.zona,esTriple(s.zona)?1:0,
-      s.made?1:0,s.foul?1:0,s.ftM||0,s.ftA||0,puntosDe(s)].join(",")).join("\n");
+      s.made?1:0,s.blocked?1:0,s.foul?1:0,s.ftM||0,s.ftA||0,puntosDe(s)].join(",")).join("\n");
   };
   const bajar=async()=>{
     const nombre=`partido_${String(game.playerName).replace(/\s+/g,"_")}_${String(game.startedAt).slice(0,10)}.csv`;
@@ -1183,7 +1280,9 @@ function JuegoResumen({game,games,onHome,toast}){
     <div className="wrap">
       <div className="masthead"><div>
         <h1 style={{fontSize:30}}>{game.playerName}</h1>
-        <p>vs {game.rival}{game.liga?" · "+game.liga:""}<br/>{fecha(game.startedAt)}</p>
+        <p>vs {game.rival}{game.liga?" · "+game.liga:""}<br/>{fecha(game.startedAt)}
+          <button onClick={()=>setEd({rival:game.rival,liga:game.liga||""})}
+                  style={{color:"var(--accent)",fontSize:14,marginLeft:8}}>Editar</button></p>
       </div></div>
 
       <div className="card">
@@ -1200,6 +1299,10 @@ function JuegoResumen({game,games,onHome,toast}){
           <div className="stat"><div className="n">{bs.tc.t?pct(bs.tc.m,bs.tc.t)+"%":"—"}</div><div className="l">campo {bs.tc.m}/{bs.tc.t}</div></div>
           <div className="stat"><div className="n">{bs.t3.t?pct(bs.t3.m,bs.t3.t)+"%":"—"}</div><div className="l">triples {bs.t3.m}/{bs.t3.t}</div></div>
           <div className="stat"><div className="n">{bs.tl.t?pct(bs.tl.m,bs.tl.t)+"%":"—"}</div><div className="l">libres {bs.tl.m}/{bs.tl.t}</div></div>
+        </div>
+        <div className="stats" style={{marginTop:9}}>
+          <div className="stat"><div className="n">{asis}</div><div className="l">asistencias</div></div>
+          <div className="stat"><div className="n">{bloq}</div><div className="l">tiros bloqueados</div></div>
         </div>
       </div>
 
@@ -1227,6 +1330,18 @@ function JuegoResumen({game,games,onHome,toast}){
 
       <button className="btn btn-quiet" onClick={bajar}>Descargar CSV del partido</button>
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
+
+      {ed&&
+        <div className="sheet"><div className="sheet-in">
+          <h2>Datos del partido</h2>
+          <input type="text" value={ed.rival} placeholder="Rival" style={{width:"100%",marginTop:10}}
+                 onChange={e=>setEd({...ed,rival:e.target.value})}/>
+          <input type="text" value={ed.liga} placeholder="Liga o torneo" style={{width:"100%",marginTop:8}}
+                 onChange={e=>setEd({...ed,liga:e.target.value})}/>
+          <button className="btn btn-primary" style={{marginTop:12}}
+                  onClick={()=>{onEdit({...game,rival:ed.rival.trim()||game.rival,liga:ed.liga.trim()});setEd(null)}}>Guardar</button>
+          <button className="btn btn-quiet" onClick={()=>setEd(null)}>Cancelar</button>
+        </div></div>}
     </div>
   );
 }
@@ -1277,10 +1392,10 @@ function App(){
       positions:cfg.positions.slice(), target:cfg.target, ftTarget:cfg.ftTarget, shots:[]});
     setScreen("capture");
   };
-  const startJuego=(rival,liga)=>{
+  const startJuego=(rival,liga,lado)=>{
     if(!playerId) return;
     setGame({id:"g"+Date.now()+"-"+Math.random().toString(36).slice(2,6),
-      playerName:playerId, rival, liga, startedAt:new Date().toISOString(), shots:[]});
+      playerName:playerId, rival, liga, lado, startedAt:new Date().toISOString(), shots:[], assists:[]});
     setScreen("juego");
   };
   const finishJuego=async()=>{
@@ -1290,6 +1405,17 @@ function App(){
     if(syncUrl()){
       try{ await pushRemote(g); toast("Partido guardado en la hoja de Drive."); }
       catch(e){ const q=[...pending,g]; setPending(q); save(K_PEND,q); toast("Guardado en el teléfono. Se subirá al recuperar señal."); }
+    }
+  };
+  const editarJuego=async g=>{
+    setGame(g);
+    const next=games.map(x=>x.id===g.id?g:x); setGames(next); save(K_GAMES,next);
+    if(syncUrl()){
+      try{
+        await fetch(syncUrl(),{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify({accion:"editar_juego",id:g.id,rival:g.rival,liga:g.liga||""})});
+        toast("Datos actualizados en la hoja.");
+      }catch(e){ toast("Actualizado en el teléfono."); }
     }
   };
   const finish=async()=>{
@@ -1316,7 +1442,7 @@ function App(){
   if(screen==="summary"&&session)
     return chrome(<Summary session={session} sessions={sessions} record={record} onHome={()=>{setSession(null);setScreen("home")}} toast={toast}/>);
   if(screen==="juegoResumen"&&game)
-    return chrome(<JuegoResumen game={game} games={games} toast={toast}
+    return chrome(<JuegoResumen game={game} games={games} toast={toast} onEdit={editarJuego}
                                 onHome={()=>{setGame(null);setScreen("home")}}/>);
   if(screen==="analisis")
     return chrome(<Analisis sessions={sessions} players={nombres} onHome={()=>setScreen("home")}/>);

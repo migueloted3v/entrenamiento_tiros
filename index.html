@@ -147,6 +147,16 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .score-line{display:flex;align-items:baseline;gap:10px;margin:8px 0 14px}
 .score-line .big{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:52px;line-height:1;color:var(--accent)}
 .score-line .side{color:var(--ink-soft);font-size:14px}
+.cuenta{display:flex;align-items:center;gap:12px;background:var(--surface-2);border-radius:12px;padding:10px 12px;margin-bottom:12px}
+.cuenta .ring{width:46px;height:46px;flex:none;position:relative}
+.cuenta svg{width:46px;height:46px;transform:rotate(-90deg)}
+.cuenta circle{fill:none;stroke-width:4}
+.cuenta .bg{stroke:var(--line)}
+.cuenta .fg{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .1s linear}
+.cuenta b{position:absolute;inset:0;display:grid;place-items:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:22px}
+.cuenta p{margin:0;font-size:14px;color:var(--ink-soft);line-height:1.3}
+.cuenta p strong{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.cuenta .fg{transition:none}}
 .pause{position:fixed;inset:0;background:var(--ink);color:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30}
 .pause .p1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:46px}
 .pause .p2{opacity:.7;font-size:15px;margin-bottom:20px}
@@ -216,6 +226,18 @@ const mmss=ms=>{const s=Math.max(0,Math.floor(ms/1000));return String(Math.floor
 
 const agg=(shots,f)=>{const c=shots.filter(f);return {t:c.length,m:c.filter(x=>x.made).length}};
 const isFT=s=>s.line===5;
+const AUTO_MS=3000;
+function Cuenta({ms,sig}){
+  const left=Math.max(0,ms), C=2*Math.PI*19, s=Math.ceil(left/1000);
+  return (
+    <div className="cuenta" role="status">
+      <div className="ring"><svg viewBox="0 0 46 46" aria-hidden="true">
+        <circle className="bg" cx="23" cy="23" r="19"/>
+        <circle className="fg" cx="23" cy="23" r="19" strokeDasharray={C} strokeDashoffset={C*(1-left/AUTO_MS)}/>
+      </svg><b>{s}</b></div>
+      <p>Pasando a <strong>{sig}</strong> en {s} s</p>
+    </div>);
+}
 function sessionStats(s){
   const tiro=s.shots.filter(x=>!isFT(x)), ft=s.shots.filter(isFT);
   return {tiro:{t:tiro.length,m:tiro.filter(x=>x.made).length},
@@ -223,12 +245,17 @@ function sessionStats(s){
           all:{t:s.shots.length,m:s.shots.filter(x=>x.made).length}};
 }
 
-function ftSplit(shots,target){
+/* reglaTL: "intentos" (jornadas viejas: N tiros fijos) o "encestes" (se tira hasta encestar N).
+   El bloque oficial ("first") es lo que cuenta para el porcentaje; lo que sigue es racha. */
+function ftSplit(shots,target,regla){
   const tl=shots.filter(isFT);
-  const first=tl.slice(0,target), extra=tl.slice(target);
+  let corte=target;
+  if(regla==="encestes"){ let m=0; corte=tl.length; for(let i=0;i<tl.length;i++){ if(tl[i].made&&++m>=target){corte=i+1;break} } }
+  const first=tl.slice(0,corte), extra=tl.slice(corte);
+  const mFirst=first.filter(x=>x.made).length;
   let r=0,best=0; tl.forEach(s=>{ if(s.made){r++;best=Math.max(best,r)} else r=0 });
   return {tl:{t:tl.length,m:tl.filter(x=>x.made).length},
-          first:{t:first.length,m:first.filter(x=>x.made).length,completo:tl.length>=target},
+          first:{t:first.length,m:mFirst,completo:regla==="encestes"?mFirst>=target:tl.length>=target},
           extra:{t:extra.length,m:extra.filter(x=>x.made).length},
           racha:best};
 }
@@ -236,7 +263,7 @@ function marcaHistorica(sessions,player,excluir){
   let best=null;
   sessions.forEach(s=>{
     if(s.playerName!==player||s.id===excluir) return;
-    const r=ftSplit(s.shots,s.ftTarget||10).racha;
+    const r=ftSplit(s.shots,s.ftTarget||10,s.reglaTL).racha;
     if(r>0&&(!best||r>best.racha)) best={racha:r,fecha:s.startedAt};
   });
   return best;
@@ -558,13 +585,16 @@ function Capture({session,setSession,onFinish,onAbort,record}){
   const [paused,setPaused]=useState(false);
   const [tick,setTick]=useState(0);
   const [ask,setAsk]=useState(null);
+  const [cuenta,setCuenta]=useState(null);
   const lastT=useRef(null), pausedAcc=useRef(0), pauseStart=useRef(null), lockT=useRef(0), wake=useRef(null);
 
   const spot = ftPhase?{line:5,pos:0}:plan[order[cursor]];
   const target = ftPhase?session.ftTarget:session.target;
   const cur = session.shots.filter(s=>s.line===spot.line&&s.pos===spot.pos);
   const hechos=cur.length, mCur=cur.filter(s=>s.made).length;
-  const listo=(ftPhase?hechos>=target:mCur>=target) && !(ftPhase&&tlLibre);
+  const porEnc=session.reglaTL==="encestes";
+  const ftPorEnc=ftPhase&&porEnc;
+  const listo=(ftPhase&&!porEnc?hechos>=target:mCur>=target) && !(ftPhase&&tlLibre);
   const ultimo=hechos?cur[hechos-1]:null;
   let rachaViva=0; for(let i=hechos-1;i>=0;i--){ if(cur[i].made) rachaViva++; else break; }
   let rr=0,rachaMax=0; cur.forEach(s=>{ if(s.made){rr++;rachaMax=Math.max(rachaMax,rr)} else rr=0 });
@@ -576,8 +606,15 @@ function Capture({session,setSession,onFinish,onAbort,record}){
   useEffect(()=>{
     if(!listo) return;
     if(ftPhase){ setMarca10({m:mCur,t:hechos}); setAsk("tlDiez"); }
-    else setAsk("confirm");
+    else { setAsk("confirm"); setCuenta(Date.now()); }
   },[listo]);
+  // avance automático: 3 s después de completar la posición, salvo que elija quedarse
+  useEffect(()=>{
+    if(ask!=="confirm"||cuenta===null) return;
+    const iv=setInterval(()=>setTick(x=>x+1),100);
+    const to=setTimeout(()=>{buzz(40);avanzar()},Math.max(0,AUTO_MS-(Date.now()-cuenta)));
+    return()=>{clearInterval(iv);clearTimeout(to)};
+  },[ask,cuenta]);
   useEffect(()=>{
     if(ftPhase&&tlLibre&&ultimo&&!ultimo.made) setAsk("tlFin");
   },[ftPhase,tlLibre,ultimo]);
@@ -600,6 +637,7 @@ function Capture({session,setSession,onFinish,onAbort,record}){
     setAsk("preguntaTL");
   };
   const avanzar=()=>{
+    setCuenta(null);
     if(ftPhase){setAsk(null);onFinish();return}
     const p=skipped.filter(x=>x!==order[cursor]);
     setSkipped(p); siguiente(p);
@@ -643,10 +681,12 @@ function Capture({session,setSession,onFinish,onAbort,record}){
           <div className="big">{ftPhase?"Tiros libres":<React.Fragment>{LINES[spot.line]}<span style={{color:"var(--accent)"}}>{spot.pos+1}</span></React.Fragment>}</div>
           <div className="sub">{ftPhase&&tlLibre
             ? `racha viva: ${rachaViva} seguidos`
+            : ftPorEnc
+              ? `${mCur} de ${target} encestes · tiro ${hechos+1}`
             : ftPhase
               ? `intento ${Math.min(hechos+1,target)} de ${target} · ${session.playerName}`
               : `${mCur} de ${target} encestes · punto ${cursor+1} de ${order.length}`}</div>
-          {ftPhase&&!tlLibre
+          {ftPhase&&!tlLibre&&!porEnc
             ? <div className="pips">
                 {Array.from({length:target}).map((_,i)=>(
                   <span key={i} className={"pip"+(cur[i]?(cur[i].made?" m":" x"):"")}/>))}
@@ -675,7 +715,7 @@ function Capture({session,setSession,onFinish,onAbort,record}){
         <button className="half made" onClick={()=>tirar(true)} aria-label="Anotó">
           <span className="lbl">Anotó</span>
           <span className="cnt">{ftPhase&&tlLibre?`${rachaViva} seguidos`
-            :ftPhase?`faltan ${Math.max(0,target-hechos)} tiros`
+            :ftPhase&&!porEnc?`faltan ${Math.max(0,target-hechos)} tiros`
             :`faltan ${Math.max(0,target-mCur)}`}</span>
         </button>
         <button className="half miss" onClick={()=>tirar(false)} aria-label="Falló">
@@ -704,9 +744,15 @@ function Capture({session,setSession,onFinish,onAbort,record}){
             <span className="big">{pct(mCur,hechos)}%</span>
             <span className="side">{mCur} encestes en {hechos} tiros</span>
           </div>
-          <button className="btn btn-primary" onClick={avanzar}>
-            {ftPhase?"Ver resultados":`Confirmar y pasar a ${sig}`}
-          </button>
+          {cuenta!==null&&!ftPhase
+            ? <React.Fragment>
+                <Cuenta ms={AUTO_MS-(Date.now()-cuenta)+tick*0} sig={sig}/>
+                <button className="btn btn-primary" onClick={avanzar}>Pasar ya a {sig}</button>
+                <button className="btn btn-quiet" onClick={()=>setCuenta(null)}>Quedarme aquí</button>
+              </React.Fragment>
+            : <button className="btn btn-primary" onClick={avanzar}>
+                {ftPhase?"Ver resultados":`Confirmar y pasar a ${sig}`}
+              </button>}
         </div></div>}
 
       {ask==="omitir"&&
@@ -732,26 +778,28 @@ function Capture({session,setSession,onFinish,onAbort,record}){
       {ask==="preguntaTL"&&
         <div className="sheet"><div className="sheet-in">
           <h2>¿Cierran con tiros libres?</h2>
-          <p className="hint">Se miden {session.ftTarget} intentos, caigan o no. Si trae buena racha, puede seguir tirando después.</p>
+          <p className="hint">{porEnc
+            ? `Se tira hasta encestar ${session.ftTarget}. El porcentaje es ${session.ftTarget} entre los tiros que hagan falta. Si trae buena racha, puede seguir tirando después.`
+            : `Se miden ${session.ftTarget} intentos, caigan o no. Si trae buena racha, puede seguir tirando después.`}</p>
           {record&&
             <div className="record"><span className="r">{record.racha}</span>
               <span className="d">seguidos es la mejor marca de {session.playerName}<br/>{fecha(record.fecha)}</span></div>}
           <button className="btn btn-primary" style={{marginTop:14}}
                   onClick={()=>{setAsk(null);setFtPhase(true);lastT.current=null;pausedAcc.current=0}}>
-            Sí, {session.ftTarget} tiros libres
+            {porEnc?`Sí, hasta ${session.ftTarget} encestes`:`Sí, ${session.ftTarget} tiros libres`}
           </button>
           <button className="btn btn-quiet" onClick={onFinish}>Hoy no, terminar aquí</button>
         </div></div>}
 
       {ask==="tlDiez"&&
         <div className="sheet"><div className="sheet-in">
-          <h2>{session.ftTarget} tiros libres</h2>
+          <h2>{porEnc?"Tiros libres completos":`${session.ftTarget} tiros libres`}</h2>
           <div className="score-line">
             <span className="big">{marca10?pct(marca10.m,marca10.t):0}%</span>
             <span className="side">{marca10&&marca10.m} encestes<br/>en {marca10&&marca10.t} intentos</span>
           </div>
           <div className="pips" style={{marginBottom:12}}>
-            {cur.slice(0,target).map((s,i)=><span key={i} className={"pip "+(s.made?"m":"x")}/>)}
+            {cur.slice(0,porEnc?(marca10?marca10.t:hechos):target).map((s,i)=><span key={i} className={"pip "+(s.made?"m":"x")}/>)}
           </div>
           {record&&<p className="hint" style={{marginBottom:12}}>Mejor marca: {record.racha} seguidos · {fecha(record.fecha)}</p>}
           <button className="btn btn-primary" onClick={()=>{setTlLibre(true);setAsk(null)}}>Seguir tirando</button>
@@ -920,7 +968,7 @@ function Lineas({shots}){
 function Summary({session,sessions,onHome,toast,record}){
   const [det,setDet]=useState(null);
   const st=sessionStats(session);
-  const tl=ftSplit(session.shots,session.ftTarget||10);
+  const tl=ftSplit(session.shots,session.ftTarget||10,session.reglaTL);
   const tiros=session.shots.filter(s=>!isFT(s));
   const mapa=useMemo(()=>{
     const o={}; tiros.forEach(s=>{ const k=s.line+"-"+s.pos; (o[k]=o[k]||{m:0,t:0}); o[k].t++; if(s.made)o[k].m++; });
@@ -1389,7 +1437,7 @@ function App(){
     if(!playerId||!cfg.positions.length)return;
     setSession({id:"s"+Date.now()+"-"+Math.random().toString(36).slice(2,6),
       playerName:playerId, startedAt:new Date().toISOString(),
-      positions:cfg.positions.slice(), target:cfg.target, ftTarget:cfg.ftTarget, shots:[]});
+      positions:cfg.positions.slice(), target:cfg.target, ftTarget:cfg.ftTarget, reglaTL:"encestes", shots:[]});
     setScreen("capture");
   };
   const startJuego=(rival,liga,lado)=>{

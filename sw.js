@@ -2,7 +2,7 @@
    Sube el número de VERSION cada vez que cambies index.html.
    Al cambiarlo, el navegador descarta la caché vieja y sirve la versión nueva. */
 
-var VERSION = 'tiros-v8';
+var VERSION = 'tiros-v9';
 
 var SHELL = [
   './',
@@ -52,4 +52,3 @@ self.addEventListener('fetch', function (e) {
     })
   );
 });
-

@@ -203,6 +203,10 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .lab-svg text{font-family:'Barlow',sans-serif;font-size:11px;fill:var(--ink-soft)}
 .lab-svg .lb{fill:var(--ink);font-size:12px;font-weight:600}
 .lab-read{font-size:14px;margin:10px 0 0}
+.lab-thumbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.lab-thumb{display:flex;flex-direction:column;gap:5px;text-align:left;padding:0}
+.lab-thumb img{width:100%;aspect-ratio:3/4;object-fit:contain;object-position:top;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);-webkit-touch-callout:default}
+.lab-thumb span{font-size:12.5px;color:var(--ink-soft);line-height:1.25}
 .flip{perspective:1400px;margin-bottom:14px;cursor:pointer;outline:none}
 .flip:focus-visible .flip-in{outline:2px solid var(--accent);outline-offset:3px;border-radius:14px}
 .flip-in{display:grid;transition:transform .55s cubic-bezier(.2,.7,.2,1);transform-style:preserve-3d;-webkit-transform-style:preserve-3d}
@@ -1210,9 +1214,11 @@ const cargarH2I=()=>h2iPromesa||(h2iPromesa=new Promise((ok,mal)=>{
   const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js";
   sc.onload=()=>ok(window.htmlToImage); sc.onerror=()=>{h2iPromesa=null;mal(new Error("sin conexión"))}; document.head.appendChild(sc);
 }));
-async function compartirLab(nombre,toast){
-  const raiz=document.querySelector(".lab-shot"); if(!raiz) return;
-  let h2i; try{ h2i=await cargarH2I(); }catch(e){ toast&&toast("Se necesita internet la primera vez para crear las imágenes."); return; }
+/* Crea una imagen por tarjeta. No comparte: iOS solo deja abrir el menú de compartir
+   justo después de un toque, y crear las imágenes tarda unos segundos. */
+async function crearImagenesLab(nombre){
+  const raiz=document.querySelector(".lab-shot"); if(!raiz) return [];
+  const h2i=await cargarH2I();
   raiz.classList.add("capturando");
   await new Promise(r=>setTimeout(r,80));
   const fondo=getComputedStyle(document.body).backgroundColor, files=[];
@@ -1225,21 +1231,41 @@ async function compartirLab(nombre,toast){
       const m=32, out=document.createElement("canvas"); out.width=c.width+2*m; out.height=c.height+2*m;
       const g=out.getContext("2d"); g.fillStyle=fondo; g.fillRect(0,0,out.width,out.height); g.drawImage(c,m,m);
       const b=await new Promise(r=>out.toBlob(r,"image/png"));
-      files.push(new File([b],`laboratorio-${nombre}-${String(i+1).padStart(2,"0")}.png`,{type:"image/png"}));
+      const titulo=(tarjetas[i].querySelector("h2")||{}).textContent||"Resumen";
+      files.push({file:new File([b],`laboratorio-${nombre}-${String(i+1).padStart(2,"0")}.png`,{type:"image/png"}),url:URL.createObjectURL(b),titulo});
     }
-  }catch(e){ toast&&toast("No se pudieron crear las imágenes."); }
-  finally{ raiz.classList.remove("capturando"); }
-  if(!files.length) return;
-  try{
-    if(navigator.canShare&&navigator.canShare({files})){ await navigator.share({files,title:`Laboratorio de ${nombre}`}); return; }
-  }catch(e){ if(e&&e.name==="AbortError") return; }
-  files.forEach(f=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); });
-  toast&&toast("Imágenes guardadas en tu teléfono.");
+  }finally{ raiz.classList.remove("capturando"); }
+  return files;
+}
+const puedeCompartir=files=>{ try{ return !!(navigator.canShare&&navigator.canShare({files})); }catch(e){ return false; } };
+async function enviarImagenes(files,nombre,toast){
+  try{ await navigator.share({files,title:`Laboratorio de ${nombre}`}); }
+  catch(e){ if(!e||e.name!=="AbortError") toast&&toast("No se pudo abrir el menú de compartir."); }
+}
+function HojaImagenes({imgs,nombre,toast,onClose}){
+  const todas=imgs.map(x=>x.file), ok=puedeCompartir(todas);
+  return (
+    <div className="sheet" onClick={onClose}>
+      <div className="sheet-in" onClick={e=>e.stopPropagation()} style={{maxHeight:"88dvh",overflowY:"auto"}}>
+        <h2>{imgs.length} imágenes listas</h2>
+        <p className="hint" style={{margin:"4px 0 12px"}}>{ok?"Envíalas todas juntas o toca una para mandar solo esa.":"Mantén presionada cada imagen para guardarla en tu galería y mándala desde WhatsApp."}</p>
+        {ok&&<button className="btn btn-primary" onClick={()=>enviarImagenes(todas,nombre,toast)}>Enviar las {imgs.length} por WhatsApp</button>}
+        <div className="lab-thumbs">
+          {imgs.map((x,i)=>(
+            <button key={i} className="lab-thumb" onClick={()=>ok&&enviarImagenes([x.file],nombre,toast)}>
+              <img src={x.url} alt={x.titulo}/>
+              <span>{x.titulo}</span>
+            </button>))}
+        </div>
+        <button className="btn btn-quiet" style={{marginTop:12}} onClick={onClose}>Cerrar</button>
+      </div>
+    </div>);
 }
 
 function Laboratorio({sessions,games,players,inicial,onHome,toast}){
   const [sel,setSel]=useState(inicial||players[0]||null);
   const [enviando,setEnviando]=useState(false);
+  const [imgs,setImgs]=useState(null);
   const todas=sessions.filter(s=>s.playerName===sel).slice().sort((a,b)=>String(a.startedAt).localeCompare(String(b.startedAt)));
   const pruebas=todas.filter(esPrueba), js=todas.filter(s=>!esPrueba(s));
   const linea=js.reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]);
@@ -1291,7 +1317,11 @@ function Laboratorio({sessions,games,players,inicial,onHome,toast}){
       {!calc ? <div className="card"><p className="hint">Todavía no hay jornadas de {sel||"este jugador"}. Captura una para ver su laboratorio.</p></div> :
       <LabCtx.Provider value={sel}>
       <button className="btn btn-primary" style={{marginBottom:14}} disabled={enviando}
-              onClick={async()=>{setEnviando(true);await compartirLab(sel,toast);setEnviando(false)}}>{enviando?"Creando imágenes…":"Compartir como imagen"}</button>
+              onClick={async()=>{setEnviando(true);
+                try{ const f=await crearImagenesLab(sel); if(f.length) setImgs(f); }
+                catch(e){ toast&&toast("Se necesita internet la primera vez para crear las imágenes."); }
+                setEnviando(false)}}>{enviando?"Creando imágenes…":"Compartir como imagen"}</button>
+      {imgs&&<HojaImagenes imgs={imgs} nombre={sel} toast={toast} onClose={()=>{imgs.forEach(x=>URL.revokeObjectURL(x.url));setImgs(null)}}/>}
       <div className="lab-shot">
         <div className="card lab-cap">
           <div className="cap-only" style={{marginTop:0,paddingTop:0,borderTop:"none",marginBottom:10}}><b style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,color:"var(--ink)"}}>Laboratorio de {sel}</b><br/>{fecha(new Date().toISOString()).split(" · ")[0]}</div>

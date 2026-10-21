@@ -13,7 +13,7 @@
 <title>Entrenamiento de tiros</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" crossorigin="anonymous">
 <style>
 :root{
   --paper:#EDF0F5; --surface:#FFFFFF; --surface-2:#F3F6FA;
@@ -203,6 +203,21 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .lab-svg text{font-family:'Barlow',sans-serif;font-size:11px;fill:var(--ink-soft)}
 .lab-svg .lb{fill:var(--ink);font-size:12px;font-weight:600}
 .lab-read{font-size:14px;margin:10px 0 0}
+.flip{perspective:1400px;margin-bottom:14px;cursor:pointer;outline:none}
+.flip:focus-visible .flip-in{outline:2px solid var(--accent);outline-offset:3px;border-radius:14px}
+.flip-in{display:grid;transition:transform .55s cubic-bezier(.2,.7,.2,1);transform-style:preserve-3d;-webkit-transform-style:preserve-3d}
+.flip.on .flip-in{transform:rotateY(180deg)}
+.flip-front,.flip-back{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;margin-bottom:0}
+.flip-back{transform:rotateY(180deg);display:flex;flex-direction:column;justify-content:center;gap:10px}
+.flip-back h2{margin:0}
+.flip-back p{margin:0;font-size:14.5px;line-height:1.5}
+.flip-back .eje{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.flip-hint{font-size:12.5px;color:var(--accent);margin-top:12px;font-weight:600}
+.cap-only{display:none;font-size:12px;color:var(--ink-soft);margin-top:12px;padding-top:8px;border-top:1px solid var(--line)}
+.capturando .cap-only{display:block}
+.capturando .no-cap,.capturando .flip-back{display:none}
+.capturando .flip-in{transition:none;transform:none}
+@media (prefers-reduced-motion:reduce){.flip-in{transition:none}}
 .lab-ojo{font-size:12.5px;color:var(--ink-soft);margin:6px 0 0;padding-left:10px;border-left:2px solid var(--line-strong)}
 .lab-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:6px}
 .lab-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
@@ -1148,15 +1163,83 @@ function Barras({filas,max,fmt,color}){
       {filas.map((f,i)=>(
         <div key={i} style={{margin:"0 0 9px",opacity:f.tenue?.45:1}}>
           <div style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:13.5}}>
-            <span style={{fontWeight:600}}>{f.k}</span><span style={{color:"var(--ink-soft)",textAlign:"right"}}>{fmt(f)}</span>
+            <span style={{fontWeight:600,whiteSpace:"nowrap"}}>{f.k}</span><span style={{color:"var(--ink-soft)",textAlign:"right",minWidth:0}}>{fmt(f)}</span>
           </div>
           <div className="bar-track" style={{marginTop:4}}><div className="bar-fill" style={{width:Math.max(1,Math.min(100,f.v/max*100))+"%",background:f.c||color||"var(--accent)"}}/></div>
         </div>))}
     </div>);
 }
 
-function Laboratorio({sessions,games,players,inicial,onHome}){
+const LabCtx=React.createContext("");
+const EJEMPLOS={
+  racha:{t:"Racha más larga",seq:"110"+"1".repeat(9)+"01",p:["En esta serie la jugadora cambia de A3 a A4 a media racha y aun así cuenta: son 9 encestes seguidos, los verdes del centro.","Cada barra de la gráfica es la racha más alta de esa jornada. La dorada es el récord."]},
+  costo:{t:"Costo por posición",p:["En A4 necesitó 7 tiros para lograr 4 encestes: 7 ÷ 4 = 1.75 tiros por enceste.","En A1 logró 5 encestes con 5 tiros: 1.00. Bajar el costo de la posición más cara ahorra más tiempo que pulir la que ya domina."]},
+  tend:{t:"Tendencia con margen de error",p:["Un día con 72% en 120 tiros tiene un rango probable de 63% a 79%. Es como decir: su nivel real de ese día anda por ahí.","Si al día siguiente saca 77%, las barras se enciman y todavía no prueba una mejora. Cuando varias jornadas seguidas quedan arriba de la línea dorada, ahí sí hay avance."]},
+  mano:{t:"¿Existe la racha?",p:["Piensa en una moneda: aunque salga águila tres veces seguidas, la siguiente sigue siendo 50 y 50.","Aquí hay una trampa extra: como cada punto se cierra con un enceste, los encestes se juntan al final de cada serie y eso por sí solo fabrica una racha. La app calcula cuánto aporta esa trampa y solo cuenta como racha real lo que sobra."]},
+  ritmo:{t:"Ritmo de tiro",p:["Si después de encestar tira a los 3 segundos, mete 88%. Si se tarda más de 9 segundos, baja a 59%.","Prueba sencilla: un día marca el ritmo contando «1, 2, 3, tiro» y compara contra un día libre."]},
+  fatiga:{t:"Curva de fatiga",p:["Si en los tiros 1 a 40 encesta 30 (75%) y en los tiros 161 a 200 encesta 25 (62%), bajó 13 puntos: señal de cansancio.","Si pasa lo contrario, 71% al inicio y 78% al final, pesa más el calentamiento. Conviene calentar más antes de empezar a contar."]},
+  cons:{t:"Puntos confiables y volátiles",p:["E1 en tres jornadas: 100%, 95% y 98%. Siempre parecido, es un punto confiable.","D3 en tres jornadas: 60%, 95% y 75%. El promedio se ve bien (77%), pero no sabes qué esperar ese día. Ahí falta mecánica, no volumen."]},
+  tl:{t:"Tiros libres en secuencia",seq:"1101111011",p:["El 1.º libre de la serie es el libre «en frío», el más parecido al de un partido, donde casi siempre se tira sin calentar.","Si el primero entra mucho más que el resto, el reto es mantener la concentración en la serie larga."]},
+  juego:{t:"Práctica contra partido",p:["En práctica encesta 74 de cada 100. En un partido metió 7 de 19, un 37%.","La diferencia es el efecto de la defensa, el cansancio y la presión. La meta es que esa brecha se vaya cerrando partido a partido."]}
+};
+function Volteable({ej,children}){
+  const [on,setOn]=useState(false), e=EJEMPLOS[ej], quien=React.useContext(LabCtx);
+  const voltear=()=>setOn(!on);
+  return (
+    <div className={"flip"+(on?" on":"")} role="button" tabIndex="0" aria-pressed={on}
+         onClick={voltear} onKeyDown={k=>{if(k.key==="Enter"||k.key===" "){k.preventDefault();voltear()}}}>
+      <div className="flip-in">
+        <div className="card flip-front lab-cap" aria-hidden={on}>
+          {children}
+          <div className="flip-hint no-cap">↻ Toca para ver un ejemplo</div>
+          <div className="cap-only">Laboratorio de {quien} · {fecha(new Date().toISOString()).split(" · ")[0]}</div>
+        </div>
+        <div className="card flip-back" aria-hidden={!on}>
+          <span className="eje">Ejemplo</span>
+          <h2>{e.t}</h2>
+          {e.seq&&<div className="pips" style={{marginTop:0}}>{e.seq.split("").map((c,i)=><span key={i} className={"pip "+(c==="1"?"m":"x")}/>)}</div>}
+          {e.p.map((t,i)=><p key={i}>{t}</p>)}
+          <div className="flip-hint">↺ Toca para regresar</div>
+        </div>
+      </div>
+    </div>);
+}
+let h2iPromesa=null;
+const cargarH2I=()=>h2iPromesa||(h2iPromesa=new Promise((ok,mal)=>{
+  if(window.htmlToImage) return ok(window.htmlToImage);
+  const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js";
+  sc.onload=()=>ok(window.htmlToImage); sc.onerror=()=>{h2iPromesa=null;mal(new Error("sin conexión"))}; document.head.appendChild(sc);
+}));
+async function compartirLab(nombre,toast){
+  const raiz=document.querySelector(".lab-shot"); if(!raiz) return;
+  let h2i; try{ h2i=await cargarH2I(); }catch(e){ toast&&toast("Se necesita internet la primera vez para crear las imágenes."); return; }
+  raiz.classList.add("capturando");
+  await new Promise(r=>setTimeout(r,80));
+  const fondo=getComputedStyle(document.body).backgroundColor, files=[];
+  try{
+    const tarjetas=[...raiz.querySelectorAll(".lab-cap")];
+    let fuentes; try{ fuentes=await h2i.getFontEmbedCSS(raiz); }catch(e){}
+    for(let i=0;i<tarjetas.length;i++){
+      /* la tarjeta sobre un margen del color de fondo, para que WhatsApp no pinte de negro las esquinas */
+      const c=await h2i.toCanvas(tarjetas[i],fuentes?{pixelRatio:2,fontEmbedCSS:fuentes}:{pixelRatio:2,skipFonts:true});
+      const m=32, out=document.createElement("canvas"); out.width=c.width+2*m; out.height=c.height+2*m;
+      const g=out.getContext("2d"); g.fillStyle=fondo; g.fillRect(0,0,out.width,out.height); g.drawImage(c,m,m);
+      const b=await new Promise(r=>out.toBlob(r,"image/png"));
+      files.push(new File([b],`laboratorio-${nombre}-${String(i+1).padStart(2,"0")}.png`,{type:"image/png"}));
+    }
+  }catch(e){ toast&&toast("No se pudieron crear las imágenes."); }
+  finally{ raiz.classList.remove("capturando"); }
+  if(!files.length) return;
+  try{
+    if(navigator.canShare&&navigator.canShare({files})){ await navigator.share({files,title:`Laboratorio de ${nombre}`}); return; }
+  }catch(e){ if(e&&e.name==="AbortError") return; }
+  files.forEach(f=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); });
+  toast&&toast("Imágenes guardadas en tu teléfono.");
+}
+
+function Laboratorio({sessions,games,players,inicial,onHome,toast}){
   const [sel,setSel]=useState(inicial||players[0]||null);
+  const [enviando,setEnviando]=useState(false);
   const todas=sessions.filter(s=>s.playerName===sel).slice().sort((a,b)=>String(a.startedAt).localeCompare(String(b.startedAt)));
   const pruebas=todas.filter(esPrueba), js=todas.filter(s=>!esPrueba(s));
   const linea=js.reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]);
@@ -1206,8 +1289,12 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
         <div className="card"><div className="chips">{players.map(p=><button key={p} className={"chip"+(p===sel?" on":"")} onClick={()=>setSel(p)}>{p}</button>)}</div></div>}
 
       {!calc ? <div className="card"><p className="hint">Todavía no hay jornadas de {sel||"este jugador"}. Captura una para ver su laboratorio.</p></div> :
-      <React.Fragment>
-        <div className="card">
+      <LabCtx.Provider value={sel}>
+      <button className="btn btn-primary" style={{marginBottom:14}} disabled={enviando}
+              onClick={async()=>{setEnviando(true);await compartirLab(sel,toast);setEnviando(false)}}>{enviando?"Creando imágenes…":"Compartir como imagen"}</button>
+      <div className="lab-shot">
+        <div className="card lab-cap">
+          <div className="cap-only" style={{marginTop:0,paddingTop:0,borderTop:"none",marginBottom:10}}><b style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,color:"var(--ink)"}}>Laboratorio de {sel}</b><br/>{fecha(new Date().toISOString()).split(" · ")[0]}</div>
           <div className="stats">
             <div className="stat"><div className="n">{js.length}</div><div className="l">jornadas</div></div>
             <div className="stat"><div className="n">{pct(mL,linea.length)}%</div><div className="l">{linea.length} tiros de línea</div></div>
@@ -1218,7 +1305,7 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
         </div>
 
         {/* rachas */}
-        <div className="card">
+        <Volteable ej="racha">
           <h2>Racha más larga</h2>
           <p className="lab-q">Encestes seguidos en los tiros de línea, aunque cambies de posición.</p>
           <div className="record"><span className="r">{calc.recL.r}</span><span className="d">encestes seguidos · récord del {fecha(calc.recL.f).split(" · ")[0]}</span></div>
@@ -1232,20 +1319,20 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
               <line x1={x0} x2={x1} y1={y1} y2={y1} stroke="var(--line-strong)"/>
             </svg>})()}
           {calc.recT&&<div className="record" style={{marginBottom:0}}><span className="r">{calc.recT.rtl}</span><span className="d">tiros libres seguidos · récord del {fecha(calc.recT.f).split(" · ")[0]}</span></div>}
-        </div>
+        </Volteable>
 
         {/* costo por posición */}
-        <div className="card">
+        <Volteable ej="costo">
           <h2>Costo por posición</h2>
           <p className="lab-q">¿Cuántos tiros cuesta cada enceste y dónde se va el entrenamiento?</p>
           <Barras filas={calc.costo.map(c=>({...c,c:c===calc.costo.reduce((a,b)=>b.v>a.v?b:a)?"var(--accent)":"var(--line-strong)",tenue:c.t<30}))}
                   max={Math.max(2,...calc.costo.map(c=>c.v))} etiq={110} fmt={f=>f.v.toFixed(2)+" tiros/enceste · "+Math.round(f.share*100)+"% del volumen"}/>
           {(()=>{const c=calc.costo.reduce((a,b)=>b.v>a.v?b:a); return <p className="lab-read">{c.k} se lleva el <b>{Math.round(c.share*100)}%</b> de los tiros; cada enceste ahí cuesta {c.v.toFixed(2)} tiros. Es el punto donde más rinde mejorar.</p>})()}
           <p className="lab-ojo">Como cada posición termina al llegar a N encestes, el volumen es consecuencia de la efectividad. Por eso se compara el costo, no los tiros crudos.</p>
-        </div>
+        </Volteable>
 
         {/* tendencia */}
-        <div className="card">
+        <Volteable ej="tend">
           <h2>Tendencia con margen de error</h2>
           <p className="lab-q">¿Mejora de verdad o es variación normal de un día a otro?</p>
           {(()=>{const T=calc.tend, W=400, H=210, x0=34, x1=W-6, y0=12, y1=H-36, lo=Math.max(0,Math.floor(Math.min(...T.map(x=>x.lo))*10)/10), hi=Math.min(1,Math.ceil(Math.max(...T.map(x=>x.hi))*10)/10),
@@ -1265,10 +1352,10 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
             const h=Math.floor(T.length/2), a=T.slice(0,h), b=T.slice(-h), pa=a.reduce((s,x)=>s+x.p*x.n,0)/a.reduce((s,x)=>s+x.n,0), pb=b.reduce((s,x)=>s+x.p*x.n,0)/b.reduce((s,x)=>s+x.n,0);
             return <p className="lab-read">Las últimas {h} jornadas van en <b>{p1(pb)}</b> contra {p1(pa)} de las primeras {h}{pb-pa>.02?": la tendencia es positiva.":pb-pa<-.02?": vale la pena revisar qué cambió.":", prácticamente estable."}</p>})()}
           <p className="lab-ojo">Con 100 a 250 tiros por jornada el rango es de unos ±7 puntos. Dos jornadas cuyas barras se enciman pueden ser el mismo nivel.</p>
-        </div>
+        </Volteable>
 
         {/* mano caliente */}
-        <div className="card">
+        <Volteable ej="mano">
           <h2>¿Existe la racha?</h2>
           <p className="lab-q">Después de encestar, ¿de verdad es más probable volver a encestar?</p>
           <Barras filas={[{k:"Después de enceste",v:calc.mc.pa,c:"var(--made)"},{k:"Después de fallo",v:calc.mc.pb,c:"var(--miss)"}]} max={1} fmt={f=>p1(f.v)}/>
@@ -1277,10 +1364,10 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
           {(()=>{const real=(calc.mc.d-calc.mc.esperado)*100, sig=calc.mc.p<.05&&real>0;
             return <p className="lab-read">A simple vista hay {(calc.mc.d*100).toFixed(1)} puntos de diferencia, pero solo por la regla de "tirar hasta N encestes" ya se esperan {(calc.mc.esperado*100).toFixed(1)}. {sig?<span>Quedan <b>{real.toFixed(1)} puntos</b> que sí parecen racha real (p = {calc.mc.p.toFixed(2)}).</span>:<span>Lo que queda ({real.toFixed(1)} pts, p = {calc.mc.p.toFixed(2)}) <b>no se distingue del azar</b>.</span>}</p>})()}
           <p className="lab-ojo">Corrección con 300 simulaciones que barajan los tiros de cada punto respetando que el último es el enceste que lo cierra.</p>
-        </div>
+        </Volteable>
 
         {/* ritmo */}
-        <div className="card">
+        <Volteable ej="ritmo">
           <h2>Ritmo de tiro</h2>
           <p className="lab-q">¿Tira mejor rápido o tomándose su tiempo?</p>
           {(()=>{const R=calc.ritmo, W=400, H=210, x0=32, x1=W-6, y0=18, y1=H-40, ys=v=>y1-v*(y1-y0), gw=(x1-x0)/R.length, bw=Math.min(40,gw*.38);
@@ -1296,11 +1383,11 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
           <div className="lab-leg"><span><i style={{background:"var(--made)"}}/>el tiro anterior entró</span><span><i style={{background:"var(--miss)"}}/>el anterior falló</span></div>
           {calc.gapMed&&<p className="lab-read">El tiempo típico entre tiros es <b>{calc.gapMed.toFixed(1)} s</b>. Compara las barras del mismo color: así se ve el efecto del ritmo sin la trampa del rebote.</p>}
           <p className="lab-ojo">Un fallo rebota lejos y el siguiente tiro tarda más; por eso se separa por resultado anterior. Aun así es correlación: confírmalo con bloques cronometrados.</p>
-        </div>
+        </Volteable>
 
         {/* fatiga */}
         {calc.fatiga.length>=2&&
-        <div className="card">
+        <Volteable ej="fatiga">
           <h2>Curva de fatiga</h2>
           <p className="lab-q">¿Baja la efectividad conforme avanza la jornada?</p>
           {(()=>{const F=calc.fatiga, W=400, H=190, x0=32, x1=W-6, y0=22, y1=H-40, lo=Math.floor(Math.min(...F.map(x=>x.p))*10)/10, hi=Math.min(1,Math.ceil(Math.max(...F.map(x=>x.p))*10)/10+.0001),
@@ -1318,11 +1405,11 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
             return <p className="lab-read">{d<-.03?<span>Baja <b>{(-d*100).toFixed(1)} puntos</b> del inicio al final: hay señal de cansancio.</span>:d>.03?<span>Sube {(d*100).toFixed(1)} puntos del inicio al final: pesa más el calentamiento que el cansancio.</span>:<span>Se mantiene estable: <b>no hay señal de fatiga</b>.</span>}</p>})()}
           <div className="lab-leg"><span>Eje inferior: número de tiro dentro de la jornada y cuántos tiros hay en cada tramo.</span></div>
           <p className="lab-ojo">Los tramos finales tienen menos tiros (se ven tenues) y solo los alcanzan las jornadas largas.</p>
-        </div>}
+        </Volteable>}
 
         {/* consistencia */}
         {calc.puntos.length>=4&&
-        <div className="card">
+        <Volteable ej="cons">
           <h2>Puntos confiables y volátiles</h2>
           <p className="lab-q">¿Dónde es predecible y dónde depende del día?</p>
           {(()=>{const P=calc.puntos, W=400, H=260, x0=34, x1=W-10, y0=14, y1=H-36, lo=Math.floor(Math.min(...P.map(x=>x.mu))*10)/10, mxs=Math.max(.25,Math.ceil(Math.max(...P.map(x=>x.sd))*20)/20),
@@ -1340,21 +1427,21 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
           <div className="lab-leg"><span><i style={{background:"var(--made)"}}/>confiables</span><span><i style={{background:"var(--miss)"}}/>volátiles</span></div>
           {(()=>{const P=calc.puntos.slice().sort((a,b)=>a.sd-b.sd); return <p className="lab-read">Más confiables: <b>{P.slice(0,2).map(x=>x.k).join(" y ")}</b>. Más volátiles: <b>{P.slice(-3).reverse().map(x=>x.k).join(", ")}</b>; ahí conviene trabajar mecánica más que volumen.</p>})()}
           <p className="lab-ojo">Cada punto tiene pocos tiros por jornada, así que parte de la variación es ruido. Lo útil es el orden, no el valor exacto.</p>
-        </div>}
+        </Volteable>}
 
         {/* tiros libres */}
         {!!calc.ord.length&&
-        <div className="card">
+        <Volteable ej="tl">
           <h2>Tiros libres en secuencia</h2>
           <p className="lab-q">¿Cómo cambia el libre según el orden en la serie?</p>
           <Barras filas={calc.ord.map((o,i)=>({k:o.k,v:o.m/o.t,n:o.t,c:i===0?"var(--accent)":"var(--line-strong)",tenue:o.t<20}))} max={1} fmt={f=>Math.round(f.v*100)+"%  n="+f.n}/>
           <p className="lab-read">El primer libre de la serie entra {Math.round(calc.ord[0].m/calc.ord[0].t*100)}% ({calc.ord[0].m} de {calc.ord[0].t}); en total {pct(mT,libres.length)}%.</p>
           <p className="lab-ojo">Se suman encestes y tiros del periodo, nunca se promedian porcentajes, porque las jornadas viejas eran de 10 intentos y las nuevas son hasta 10 encestes.</p>
-        </div>}
+        </Volteable>}
 
         {/* partido */}
         {!!tirosJuego.length&&
-        <div className="card">
+        <Volteable ej="juego">
           <h2>Práctica contra partido</h2>
           <p className="lab-q">¿Cuánto de lo que encesta en práctica llega al juego?</p>
           {(()=>{const z=porZona(tirosJuego), mJ=tirosJuego.filter(x=>x.made).length;
@@ -1362,8 +1449,9 @@ function Laboratorio({sessions,games,players,inicial,onHome}){
               .concat(ZONAS.filter(k=>z[k].t>0).map(k=>({k:"Partido · "+ZONA_NOM[k].toLowerCase(),v:z[k].m/z[k].t,txt:z[k].m+" / "+z[k].t,c:"var(--line-strong)",tenue:z[k].t<MIN_ZONA})));
             return <Barras filas={filas} max={1} etiq={200} fmt={f=>p1(f.v)+"  "+f.txt}/>})()}
           <p className="lab-ojo">{partidos.length<5?`Con ${partidos.length} partido${partidos.length>1?"s":""} todavía no es tendencia; este módulo se vuelve el más valioso a partir de 5.`:`Basado en ${partidos.length} partidos.`}</p>
-        </div>}
-      </React.Fragment>}
+        </Volteable>}
+      </div>
+      </LabCtx.Provider>}
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
     </div>
   );
@@ -1746,7 +1834,7 @@ function App(){
   if(screen==="analisis")
     return chrome(<Analisis sessions={sessions} player={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="laboratorio")
-    return chrome(<Laboratorio sessions={sessions} games={games} players={[playerId]} inicial={playerId} onHome={()=>setScreen("home")}/>);
+    return chrome(<Laboratorio sessions={sessions} games={games} players={[playerId]} inicial={playerId} toast={toast} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")
     return chrome(<Ajustes onHome={()=>setScreen("home")} toast={toast} pendientes={pending.length} onSync={sincronizar}/>);
   return chrome(

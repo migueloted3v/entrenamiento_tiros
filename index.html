@@ -496,7 +496,7 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
       </button>
       <button className="btn btn-quiet" onClick={()=>setAskJuego(true)} disabled={!playerId}>Capturar un partido</button>
       <button className="btn btn-quiet" onClick={onLaboratorio} disabled={!playerId}>{playerId?`Laboratorio de ${playerId}`:"Laboratorio"}</button>
-      <button className="btn btn-quiet" onClick={onAnalisis}>Ver análisis de todos</button>
+      <button className="btn btn-quiet" onClick={onAnalisis} disabled={!playerId}>{playerId?`Análisis de ${playerId}`:"Análisis"}</button>
 
       {askJuego&&
         <div className="sheet" onClick={()=>setAskJuego(false)}>
@@ -1068,8 +1068,8 @@ function Summary({session,sessions,onHome,toast,record}){
 }
 
 /* ---------- análisis acumulado ---------- */
-function Analisis({sessions,players,onHome}){
-  const [sel,setSel]=useState(players[0]||null);
+function Analisis({sessions,player,onHome}){
+  const sel=player;
   const [dias,setDias]=useState(0);
   const corte=dias?Date.now()-dias*864e5:0;
   const suyas=sessions.filter(s=>s.playerName===sel&&new Date(s.startedAt).getTime()>=corte);
@@ -1080,11 +1080,10 @@ function Analisis({sessions,players,onHome}){
   return (
     <div className="wrap">
       <button className="back" onClick={onHome}>← Inicio</button>
-      <div className="masthead"><div><h1>Análisis</h1><p>Acumulado por jugador</p></div></div>
+      <div className="masthead"><div><h1>Análisis</h1><p>Acumulado de {sel||"un jugador"}</p></div></div>
 
       <div className="card">
-        <div className="chips">{players.map(p=><button key={p} className={"chip"+(p===sel?" on":"")} onClick={()=>setSel(p)}>{p}</button>)}</div>
-        <div className="chips" style={{marginTop:10}}>
+        <div className="chips">
           {[[0,"Todo"],[30,"30 días"],[90,"90 días"]].map(([d,l])=>
             <button key={d} className={"chip"+(dias===d?" on":"")} onClick={()=>setDias(d)}>{l}</button>)}
         </div>
@@ -1108,20 +1107,6 @@ function Analisis({sessions,players,onHome}){
         <div className="card"><h2>Por línea</h2><Lineas shots={tiro}/></div>
       </React.Fragment>}
 
-      <div className="card">
-        <h2>Comparativo</h2>
-        {players.map(p=>{
-          const t=sessions.filter(s=>s.playerName===p).reduce((a,s)=>a.concat(s.shots),[]).filter(s=>!isFT(s));
-          const m=t.filter(s=>s.made).length, q=t.length?m/t.length:0;
-          return (
-            <div className="bar-row" key={p}>
-              <span style={{width:78,fontSize:14.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p}</span>
-              <span className="bar-track"><span className="bar-fill" style={{width:q*100+"%",background:heat(q)}}/></span>
-              <span className="v">{t.length?Math.round(q*100)+"%":"—"}</span>
-            </div>
-          );
-        })}
-      </div>
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
     </div>
   );
@@ -1759,7 +1744,7 @@ function App(){
     return chrome(<JuegoResumen game={game} games={games} toast={toast} onEdit={editarJuego}
                                 onHome={()=>{setGame(null);setScreen("home")}}/>);
   if(screen==="analisis")
-    return chrome(<Analisis sessions={sessions} players={nombres} onHome={()=>setScreen("home")}/>);
+    return chrome(<Analisis sessions={sessions} player={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="laboratorio")
     return chrome(<Laboratorio sessions={sessions} games={games} players={[playerId]} inicial={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")

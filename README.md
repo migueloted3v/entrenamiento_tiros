@@ -1,138 +1,131 @@
+<div align="center">
+
+<img src="icon-192.png" width="96" alt="Ícono de la app">
+
 # Entrenamiento de tiros
 
-App de captura de tiros de baloncesto para entrenamiento. Se registra por línea (A–E) y posición (1–5), contando **cuántos tiros costó lograr los encestes objetivo** de cada punto.
+**Registra cada tiro, mide cuánto cuesta cada enceste y descubre dónde mejorar.**
 
-Funciona en el navegador del celular, se instala en la pantalla de inicio y opera sin conexión. Los datos se respaldan en una hoja de Google compartida entre todos los usuarios.
+App para el celular que acompaña el entrenamiento de tiro en baloncesto: se captura con un dedo en plena cancha, funciona sin internet y convierte cada jornada en análisis que un entrenador usaría.
 
----
+📱 Se instala como app &nbsp;·&nbsp; 📶 Funciona sin señal &nbsp;·&nbsp; ☁️ Respaldo en Google Drive &nbsp;·&nbsp; 👨‍👩‍👧 Varios jugadores
 
-## Archivos del repositorio
+<br>
 
-| Archivo | Para qué sirve |
-|---|---|
-| `index.html` | La app completa. Un solo archivo, sin compilación. |
-| `manifest.json` | Nombre, colores e iconos para instalarla como app. |
-| `sw.js` | Service worker: permite abrirla sin internet. |
-| `icon-180.png`, `icon-192.png`, `icon-512.png` | Iconos. |
-| `apps-script.gs` | Se pega en Google Apps Script, **no** se usa en el sitio. |
+<img src="docs/inicio.png" width="230" alt="Pantalla principal">&nbsp;&nbsp;
+<img src="docs/captura.png" width="230" alt="Captura de tiros">&nbsp;&nbsp;
+<img src="docs/lab.png" width="230" alt="Laboratorio">
+
+</div>
 
 ---
 
-## Paso 1 — Publicar en GitHub Pages
+## 🏀 Cómo funciona el entrenamiento
 
-1. En GitHub, **New repository**. Nombre: `cinco-lineas`. Visibilidad **Public** (Pages gratis requiere repo público). No marques "Add a README".
-2. En el repo vacío, **uploading an existing file**. Arrastra todos los archivos de la tabla de arriba, **excepto** `apps-script.gs`.
-3. Renombra el HTML a `index.html` si no lo está. GitHub Pages solo sirve la portada con ese nombre exacto.
-4. **Commit changes**.
-5. **Settings → Pages**. En *Source* elige `Deploy from a branch`, rama `main`, carpeta `/ (root)`. **Save**.
-6. Espera un par de minutos y recarga la página de Settings. Aparece la URL:
+La cancha se divide en **5 líneas (A a E)** y **5 posiciones (1 a 5)**: 25 puntos de tiro.
 
-   ```
-   https://TU-USUARIO.github.io/cinco-lineas/
-   ```
+1. **Eliges las posiciones del día** y cuántos encestes pides en cada punto (por ejemplo, 5).
+2. **La jugadora tira hasta lograr esos encestes** en cada punto. La app cuenta cuántos tiros le costó.
+3. Al completar un punto, la app **avanza sola en 3 segundos** al siguiente. Puedes pasar de inmediato o quedarte ahí.
+4. Al final vienen los **tiros libres**: se tira hasta lograr 10 encestes. Si quiere seguir tirando para buscar racha, esos tiros extra se miden aparte.
 
-Esa es la dirección que vas a compartir.
-
-> **Al actualizar la app:** sube el `index.html` nuevo **y** súbele el número a `VERSION` dentro de `sw.js` (por ejemplo `cinco-lineas-v2`). Si no lo cambias, los teléfonos seguirán abriendo la versión guardada en caché.
+> 💡 Medir *cuántos tiros cuesta* un enceste, en lugar de cuántos entran de un número fijo, hace que cada punto se trabaje hasta dominarlo.
 
 ---
 
-## Paso 2 — Crear la hoja de Google
+## ✋ Captura con un dedo
 
-1. En Drive, crea una hoja nueva: **Entrenamiento de tiros**.
-2. **Extensiones → Apps Script**. Borra lo que traiga y pega el contenido de `apps-script.gs`.
-3. Guarda (icono de disco).
-4. **Implementar → Nueva implementación**. En el engrane elige **Aplicación web**.
-   - *Descripción:* `v1`
-   - *Ejecutar como:* **Yo**
-   - *Quién tiene acceso:* **Cualquier usuario**
-5. **Implementar**. Google pedirá autorizar; acepta (la advertencia de "app no verificada" es normal en scripts propios: *Configuración avanzada → Ir a…*).
-6. Copia la URL que termina en `/exec`.
+<img src="docs/captura.png" width="220" align="right" alt="Pantalla de captura">
 
-Las pestañas `Jornadas` y `Tiros` se crean solas con el primer registro.
+- Media pantalla **verde para "Anotó"** y media **roja para "Falló"**. No hay que ver el celular para atinarle.
+- Arriba se ve el punto actual, los encestes que faltan y los círculos de cada intento.
+- **Pausa**, **Omitir punto** y **Terminar** siempre a la mano.
+- La pantalla se mantiene encendida durante la serie.
+- Cada tiro guarda la hora exacta, así que la app sabe el **ritmo** al que se está tirando.
 
-> **Importante:** si dejas *Quién tiene acceso* en "Solo yo", los demás teléfonos recibirán error de permisos y sus jornadas se quedarán atoradas en la cola de subida.
-
-> **Al modificar el script después:** usa **Implementar → Gestionar implementaciones → editar (lápiz) → Versión: Nueva versión**. Si creas una implementación nueva desde cero, cambia la URL y hay que actualizarla en todos los teléfonos.
+<br clear="right">
 
 ---
 
-## Paso 3 — Dar de alta a cada persona
+## 🏟️ Modo partido
 
-No hay cuentas ni contraseñas. Un usuario queda dado de alta cuando su teléfono apunta a la misma hoja.
+Para los juegos de verdad, no solo la práctica:
 
-Para cada persona (tú, tu esposa, quien capture):
-
-1. Mándale la URL de GitHub Pages por WhatsApp.
-2. Que la abra en el navegador del celular.
-   - **Android / Chrome:** menú ⋮ → *Agregar a pantalla principal*.
-   - **iPhone / Safari:** botón compartir → *Agregar a inicio*. En iPhone tiene que ser Safari; desde Chrome no se instala.
-3. Que abra la app y toque la etiqueta de arriba a la derecha (dice *Solo este equipo*).
-4. Que pegue ahí la URL `/exec` del Paso 2 y toque **Guardar y sincronizar**.
-5. La etiqueta cambia a **Drive activo**. Listo.
-
-A partir de ahí los jugadores, las jornadas y el análisis se ven iguales en todos los teléfonos.
-
-**Los jugadores no son usuarios.** Cada quien agrega los nombres que va a medir en *¿Quién tiene tiro?* y esos nombres se sincronizan solos. Si tu esposa registra a las niñas, sus jornadas te aparecen a ti en *Ver análisis de todos* sin que hagas nada.
-
-### Cuidado con la URL del script
-
-Esa dirección es la llave de la hoja: quien la tenga puede escribir en ella. Para uso familiar está bien, pero **no la pongas dentro de `index.html` ni la subas al repo** — por eso se captura en Ajustes y se guarda solo en el teléfono. Si algún día se filtra, genera una implementación nueva en Apps Script y reparte la URL nueva.
+- Tocas en la cancha **dónde fue el tiro** y si entró, fue bloqueado o hubo falta.
+- Clasifica cada tiro en las **5 zonas estándar** (área restringida, pintura, media distancia, triple de esquina y triple sobre el arco), con medidas FIBA.
+- Registra **rival, liga y periodo**, y calcula puntos, tiros de campo, triples, libres y asistencias.
+- El resumen se puede ver por **partido**, por **liga** o con **todos sus partidos**.
+- Puedes voltear la cancha al medio tiempo. El mapa se guarda siempre igual, así que el acumulado no se rompe.
 
 ---
 
-## Cómo se guardan los datos
+## 📊 Análisis de cada jugador
 
-Tres capas, en este orden:
+<img src="docs/analisis.png" width="220" align="right" alt="Pantalla de análisis">
 
-1. **El teléfono** (`localStorage`) — se escribe siempre, primero. Es la fuente de verdad durante el entrenamiento.
-2. **La cola de pendientes** — si no hay señal en la cancha, la jornada se guarda aquí y sube sola la próxima vez que se abra la app con internet.
-3. **La hoja de Google** — el respaldo compartido.
+Desde la pantalla principal, **Análisis de [jugador]** muestra solo a quien esté seleccionado en *¿Quién tira?*:
 
-Por eso puedes capturar en un gimnasio sin datos sin perder nada.
+- 🎯 **Efectividad acumulada** en tiros de línea y tiros libres.
+- 🗺️ **Mapa de calor** de los 25 puntos, con encestes y tiros reales de cada uno.
+- 📏 **Rendimiento por línea** y cuál es la más fuerte.
+- 📅 Filtros de **todo**, **últimos 30 días** y **últimos 90 días**.
 
-### Estructura de la hoja
-
-**`Jornadas`** — una fila por sesión: identificador, jugador, fecha, posiciones entrenadas, objetivo de encestes, totales y efectividad de línea y de tiros libres.
-
-**`Tiros`** — una fila por tiro: jornada, jugador, fecha, fase (`LINEA` o `TL`), línea, posición, número de intento, resultado (1/0) y segundos desde el tiro anterior.
-
-**`Juegos`** — una fila por partido: identificador, jugador, fecha, rival, liga, puntos, tiros de campo, triples, tiros libres, asistencias y tiros bloqueados.
-
-**`Tiros_Juego`** — una fila por tiro de partido: partido, jugador, fecha, periodo, rival, liga, coordenadas, distancia en metros, zona, si fue triple, resultado, si fue bloqueado, falta, tiros libres y puntos de la jugada.
-
-La liga permite separar el rendimiento entre los distintos equipos y torneos en los que juega la misma jugadora. En la pantalla de resultados del partido puedes alternar entre este partido, el acumulado de esa liga, y el acumulado de todos sus partidos.
-
-La de `Tiros` es la tabla de hechos: conéctala directo a Power BI para tendencias por posición, comparativos entre jugadores o cruces de efectividad contra ritmo. La de `Jornadas` sirve como dimensión de sesión.
-
-Para bajarla como Excel: **Archivo → Descargar → Microsoft Excel**.
+<br clear="right">
 
 ---
 
-## Notas de medición
+## 🧪 Laboratorio: el análisis a fondo
 
-- **La efectividad es encestes / tiros realizados.** Cinco encestes en siete tiros es 71%.
-- **El ritmo solo mide intervalos dentro de un mismo punto.** El primer tiro después de cambiar de posición incluye el desplazamiento del jugador y se excluye. También se descartan intervalos mayores a dos minutos.
-- **La pausa no cuenta.** El tiempo de recuperar el balón se resta del ritmo.
-- **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo. Ese porcentaje es real pero viene de una serie que no se cerró.
-- **Los tiros libres son diez intentos fijos.** Caigan o no, siempre se cuentan diez, así que 8 de 10 es 80%. Ese es el dato comparable entre jornadas. Si después quiere seguir tirando, esa racha se mide aparte y no toca el porcentaje.
-- **Un tiro bloqueado cuenta como intento fallado**, igual que en la estadística oficial: suma al denominador y no al numerador. Se guarda marcado aparte porque habla de selección de tiro, no de puntería.
-- **La cancha se guarda siempre con el aro a la izquierda.** El botón de voltear solo cambia cómo se dibuja en pantalla, para que puedas capturar desde el lado en que estás sentado y cambiar al medio tiempo sin partir el mapa acumulado.
-- **Las zonas del modo partido** son las cinco estándar de la NBA adaptadas a medidas FIBA: área restringida, pintura, media distancia, triple de esquina y triple sobre el arco. Una zona con menos de seis tiros acumulados se muestra en gris porque su porcentaje no significa nada todavía.
-- **Compara puntos por tiro, no puntos totales.** Quien más tira siempre anota más.
-- **Los promedios de fila y columna** salen de sumar encestes y tiros reales, nunca de promediar los porcentajes de las celdas. Una posición donde se tiró el doble pesa el doble, como debe ser.
-- **No compares días con distintas posiciones.** Un 80% de un día de posiciones 1 y 2 no es comparable contra un 60% de un día de posición 5. Para eso está el detalle por celda.
+<div align="center">
+<img src="docs/lab.png" width="230" alt="Racha más larga">&nbsp;&nbsp;
+<img src="docs/lab2.png" width="230" alt="Tendencia y racha">
+</div>
+
+El botón **Laboratorio de [jugador]** responde las preguntas que un entrenador se hace y que no se ven a simple vista:
+
+| | Módulo | La pregunta que responde |
+|:-:|---|---|
+| 🔥 | **Racha más larga** | ¿Cuántos encestes seguidos ha logrado, y cuándo? Gráfica por jornada, récord con fecha y récord de tiros libres. |
+| 💰 | **Costo por posición** | ¿Cuántos tiros cuesta cada enceste y en qué posición se va el tiempo de entrenamiento? |
+| 📈 | **Tendencia con margen de error** | ¿Está mejorando de verdad, o es la variación normal de un día a otro? |
+| 🎲 | **¿Existe la racha?** | Después de encestar, ¿de verdad es más probable volver a encestar? Corrige el sesgo de la regla de "tirar hasta N encestes". |
+| ⏱️ | **Ritmo de tiro** | ¿Tira mejor rápido o tomándose su tiempo? |
+| 🔋 | **Curva de fatiga** | ¿Baja la efectividad conforme avanza la jornada? |
+| 🎯 | **Puntos confiables y volátiles** | ¿Dónde es predecible y dónde depende del día? |
+| 🆓 | **Tiros libres en secuencia** | ¿Cómo cambia el libre según su orden en la serie? |
+| 🆚 | **Práctica contra partido** | ¿Cuánto de lo que encesta en práctica llega al juego? |
+
+Cada módulo trae su gráfica, una lectura en palabras sencillas y una nota de qué cuidar al interpretarlo. Las jornadas de prueba (tiros capturados a menos de 1.5 segundos entre uno y otro) se descartan solas.
 
 ---
 
-## Solución de problemas
+## ☁️ Tus datos, siempre a salvo
 
-**La app no se actualiza después de subir cambios.** No subiste el `VERSION` de `sw.js`. Cámbialo, sube el archivo, y en el teléfono cierra la app y vuelve a abrirla dos veces.
+- **Primero se guarda en el teléfono.** Puedes capturar en un gimnasio sin señal y no se pierde nada.
+- **Si no hay internet, la jornada espera en una cola** y sube sola la próxima vez que haya conexión.
+- **Respaldo en una hoja de Google** compartida por la familia: todos los teléfonos ven los mismos jugadores, jornadas y análisis.
+- La etiqueta de arriba a la derecha te dice el estado: **Drive activo**, **Por subir** o **Solo este equipo**.
+- La hoja guarda una fila por tiro, lista para abrirse en Excel o conectarse a Power BI.
 
-**Dice "Por subir" y no baja.** La URL del script está mal pegada, o la implementación no quedó como "Cualquier usuario". Revisa el Paso 2 punto 4.
+---
 
-**En iPhone no aparece "Agregar a inicio".** Está usando Chrome. Tiene que ser Safari.
+## 📐 Cómo se mide
 
-**No veo las jornadas de otra persona.** Su teléfono no tiene la URL en Ajustes, o pegó una URL distinta. Compara que ambas terminen exactamente igual.
+- ✅ **Efectividad = encestes ÷ tiros realizados.** Cinco encestes en siete tiros es 71%.
+- ➕ **Los promedios suman encestes y tiros reales**, nunca promedian porcentajes. Un punto donde se tiró el doble pesa el doble.
+- ⏱️ **El ritmo solo cuenta tiros seguidos en el mismo punto.** El cambio de posición, las pausas y los intervalos de más de dos minutos no cuentan.
+- ✳️ **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo.
+- 🛡️ **Un tiro bloqueado cuenta como fallado**, igual que en la estadística oficial, y se marca aparte.
+- ⚪ **Una zona de partido con menos de seis tiros se muestra en gris**: su porcentaje todavía no dice nada.
+- ⚖️ **Compara puntos por tiro, no puntos totales.** Quien más tira siempre anota más.
+- 🔄 **No compares días con posiciones distintas.** Un 80% en posiciones 1 y 2 no se compara con un 60% en la 5. Para eso está el detalle por punto.
 
-**La pantalla se apaga a media serie.** La app pide bloqueo de pantalla, pero algunos navegadores lo ignoran. Sube el tiempo de apagado del celular durante el entrenamiento.
+---
+
+<div align="center">
+
+🛠️ ¿Vas a instalarla o actualizarla? Revisa [INSTALACION.md](INSTALACION.md).
+
+Hecho para entrenar en familia 🧡
+
+</div>

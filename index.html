@@ -198,6 +198,14 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));
   background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:999px;font-size:14.5px;z-index:40;max-width:90%;text-align:center}
 .back{color:var(--ink-soft);font-size:15px;margin-bottom:8px;padding:4px 0}
+.lab-q{font-size:14.5px;font-weight:500;margin:-4px 0 10px}
+.lab-svg{display:block;width:100%;height:auto}
+.lab-svg text{font-family:'Barlow',sans-serif;font-size:11px;fill:var(--ink-soft)}
+.lab-svg .lb{fill:var(--ink);font-size:12px;font-weight:600}
+.lab-read{font-size:14px;margin:10px 0 0}
+.lab-ojo{font-size:12.5px;color:var(--ink-soft);margin:6px 0 0;padding-left:10px;border-left:2px solid var(--line-strong)}
+.lab-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin-top:6px}
+.lab-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -428,7 +436,7 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
 }
 
 /* ---------- inicio ---------- */
-function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onAjustes,syncState}){
+function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onLaboratorio,onAjustes,syncState}){
   const [nuevo,setNuevo]=useState("");
   const [rival,setRival]=useState("");
   const [liga,setLiga]=useState("");
@@ -487,6 +495,7 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
         {puestos?`Iniciar en A${cfg.positions[0]+1}`:"Elige al menos una posición"}
       </button>
       <button className="btn btn-quiet" onClick={()=>setAskJuego(true)} disabled={!playerId}>Capturar un partido</button>
+      <button className="btn btn-quiet" onClick={onLaboratorio} disabled={!playerId}>{playerId?`Laboratorio de ${playerId}`:"Laboratorio"}</button>
       <button className="btn btn-quiet" onClick={onAnalisis}>Ver análisis de todos</button>
 
       {askJuego&&
@@ -1118,6 +1127,263 @@ function Analisis({sessions,players,onHome}){
   );
 }
 
+/* ---------- laboratorio: análisis avanzado por jugador ---------- */
+const wilson=(m,n)=>{ if(!n) return [0,0]; const z=1.96,p=m/n,d=1+z*z/n,c=p+z*z/(2*n),e=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n)); return [(c-e)/d,(c+e)/d]; };
+const rng=seed=>()=>{ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+const fCorta=iso=>new Date(iso).toLocaleDateString("es-MX",{day:"numeric",month:"short"});
+const p1=v=>(v*100).toFixed(1)+"%";
+const rachaMax=arr=>{ let r=0,b=0; arr.forEach(x=>{ if(x){r++;b=Math.max(b,r)} else r=0 }); return b; };
+/* jornada de prueba: tiros capturados a menos de 1.5 s de mediana (nadie tira y recoge tan rápido) */
+const esPrueba=s=>{ const g=s.shots.filter(x=>!isFT(x)).map(x=>x.gap).filter(x=>typeof x==="number"&&x>0).sort((a,b)=>a-b);
+  return g.length>=10&&g[Math.floor(g.length/2)]<1500; };
+/* bloques = tiros seguidos en el mismo punto (línea+posición) de una jornada */
+function bloquesDe(js){
+  const out=[];
+  js.forEach(s=>{ const m=new Map();
+    s.shots.filter(x=>!isFT(x)).slice().sort((a,b)=>a.t-b.t).forEach(x=>{ const k=x.line+"-"+x.pos; if(!m.has(k))m.set(k,[]); m.get(k).push(x); });
+    m.forEach(v=>out.push(v)); });
+  return out;
+}
+function brecha(bl){ let a=0,am=0,b=0,bm=0;
+  bl.forEach(v=>{ for(let i=1;i<v.length;i++){ if(v[i-1]){a++;if(v[i])am++}else{b++;if(v[i])bm++} } });
+  return {pa:a?am/a:0,pb:b?bm/b:0,na:a,nb:b,d:(a?am/a:0)-(b?bm/b:0)}; }
+function manoCaliente(bloques){
+  const bl=bloques.map(v=>v.map(x=>x.made?1:0));
+  const obs=brecha(bl), r=rng(7); let sum=0,mayores=0; const N=300;
+  for(let k=0;k<N;k++){
+    const sim=bl.map(v=>{ const w=v.slice(0,-1); for(let i=w.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[w[i],w[j]]=[w[j],w[i]]} return w.concat(v.slice(-1)); });
+    const d=brecha(sim).d; sum+=d; if(d>=obs.d)mayores++;
+  }
+  return {...obs,esperado:sum/N,p:mayores/N};
+}
+
+function Barras({filas,max,fmt,color}){
+  return (
+    <div>
+      {filas.map((f,i)=>(
+        <div key={i} style={{margin:"0 0 9px",opacity:f.tenue?.45:1}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:13.5}}>
+            <span style={{fontWeight:600}}>{f.k}</span><span style={{color:"var(--ink-soft)",textAlign:"right"}}>{fmt(f)}</span>
+          </div>
+          <div className="bar-track" style={{marginTop:4}}><div className="bar-fill" style={{width:Math.max(1,Math.min(100,f.v/max*100))+"%",background:f.c||color||"var(--accent)"}}/></div>
+        </div>))}
+    </div>);
+}
+
+function Laboratorio({sessions,games,players,inicial,onHome}){
+  const [sel,setSel]=useState(inicial||players[0]||null);
+  const todas=sessions.filter(s=>s.playerName===sel).slice().sort((a,b)=>String(a.startedAt).localeCompare(String(b.startedAt)));
+  const pruebas=todas.filter(esPrueba), js=todas.filter(s=>!esPrueba(s));
+  const linea=js.reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]);
+  const libres=js.reduce((a,s)=>a.concat(s.shots.filter(isFT)),[]);
+  const partidos=games.filter(g=>g.playerName===sel);
+  const tirosJuego=partidos.reduce((a,g)=>a.concat(g.shots),[]);
+  const mL=linea.filter(x=>x.made).length, mT=libres.filter(x=>x.made).length;
+
+  const calc=useMemo(()=>{
+    if(!linea.length) return null;
+    /* rachas por jornada: tiros de línea seguidos, sin importar el cambio de posición */
+    const rachas=js.map(s=>{ const t=s.shots.filter(x=>!isFT(x)).slice().sort((a,b)=>a.t-b.t).map(x=>x.made);
+      return {f:s.startedAt,r:rachaMax(t),rtl:rachaMax(s.shots.filter(isFT).slice().sort((a,b)=>a.t-b.t).map(x=>x.made))}; });
+    const recL=rachas.reduce((b,x)=>!b||x.r>b.r?x:b,null), recT=rachas.reduce((b,x)=>x.rtl>0&&(!b||x.rtl>b.rtl)?x:b,null);
+    /* costo por posición */
+    const costo=POS.map((p,j)=>{const a=agg(linea,x=>x.pos===j); return {k:"Posición "+p,t:a.t,m:a.m,v:a.m?a.t/a.m:0,share:a.t/linea.length};}).filter(x=>x.t>0);
+    /* tendencia */
+    const tend=js.map(s=>{const a=agg(s.shots,x=>!isFT(x)); const ci=wilson(a.m,a.t); return {f:s.startedAt,n:a.t,p:a.t?a.m/a.t:0,lo:ci[0],hi:ci[1]};}).filter(x=>x.n>0);
+    /* mano caliente y ritmo */
+    const bl=bloquesDe(js), mc=manoCaliente(bl);
+    const cortes=[[0,4,"< 4 s"],[4,6,"4–6 s"],[6,9,"6–9 s"],[9,1e9,"> 9 s"]];
+    const ritmo=cortes.map(([a,b,k])=>{ const o={k,e:{m:0,t:0},f:{m:0,t:0}};
+      bl.forEach(v=>{ for(let i=1;i<v.length;i++){ const g=v[i].gap/1000; if(!(g>0&&g<120)||g<a||g>=b) continue; const d=v[i-1].made?o.e:o.f; d.t++; if(v[i].made)d.m++; } });
+      return o; });
+    const gaps=bl.reduce((a,v)=>a.concat(v.slice(1).map(x=>x.gap/1000).filter(g=>g>0&&g<120)),[]).sort((a,b)=>a-b);
+    /* fatiga: tramos de 40 tiros dentro de la jornada */
+    const tram={}; js.forEach(s=>s.shots.filter(x=>!isFT(x)).slice().sort((a,b)=>a.t-b.t).forEach((x,i)=>{const k=Math.floor(i/40); tram[k]=tram[k]||{m:0,t:0}; tram[k].t++; if(x.made)tram[k].m++;}));
+    const fatiga=Object.keys(tram).map(Number).sort((a,b)=>a-b).map(k=>({k:(k*40+1)+"–"+(k*40+40),p:tram[k].m/tram[k].t,n:tram[k].t})).filter(x=>x.n>=8);
+    /* consistencia por punto entre jornadas */
+    const puntos=[]; LINES.forEach((L,i)=>POS.forEach((P,j)=>{
+      const ps=js.map(s=>agg(s.shots,x=>x.line===i&&x.pos===j)).filter(a=>a.t>=3).map(a=>a.m/a.t);
+      if(ps.length>=3){const mu=ps.reduce((a,b)=>a+b,0)/ps.length; const sd=Math.sqrt(ps.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(ps.length-1)); puntos.push({k:L+P,mu,sd});}
+    }));
+    /* tiros libres por orden en la serie */
+    const ord=[[0,0,"1.º de la serie"],[1,4,"2.º a 5.º"],[5,9,"6.º a 10.º"],[10,999,"11.º en adelante"]].map(([a,b,k])=>{const o={k,m:0,t:0};
+      js.forEach(s=>s.shots.filter(isFT).slice().sort((x,y)=>x.t-y.t).forEach((x,i)=>{if(i>=a&&i<=b){o.t++;if(x.made)o.m++}})); return o;}).filter(o=>o.t>0);
+    return {rachas,recL,recT,costo,tend,mc,ritmo,gapMed:gaps.length?gaps[Math.floor(gaps.length/2)]:null,fatiga,puntos,ord};
+  },[sel,sessions]);
+
+  const media=linea.length?mL/linea.length:0;
+  return (
+    <div className="wrap">
+      <button className="back" onClick={onHome}>← Inicio</button>
+      <div className="masthead"><div><h1>Laboratorio</h1><p>Análisis a fondo de {sel||"un jugador"}</p></div></div>
+
+      {players.length>1&&
+        <div className="card"><div className="chips">{players.map(p=><button key={p} className={"chip"+(p===sel?" on":"")} onClick={()=>setSel(p)}>{p}</button>)}</div></div>}
+
+      {!calc ? <div className="card"><p className="hint">Todavía no hay jornadas de {sel||"este jugador"}. Captura una para ver su laboratorio.</p></div> :
+      <React.Fragment>
+        <div className="card">
+          <div className="stats">
+            <div className="stat"><div className="n">{js.length}</div><div className="l">jornadas</div></div>
+            <div className="stat"><div className="n">{pct(mL,linea.length)}%</div><div className="l">{linea.length} tiros de línea</div></div>
+            <div className="stat"><div className="n">{libres.length?pct(mT,libres.length)+"%":"—"}</div><div className="l">{libres.length} tiros libres</div></div>
+          </div>
+          {linea.length<300&&<p className="hint" style={{marginTop:10}}>Con {linea.length} tiros los análisis son preliminares; se vuelven confiables arriba de 300.</p>}
+          {!!pruebas.length&&<p className="hint" style={{marginTop:10}}>Se dejan fuera {pruebas.length} jornada{pruebas.length>1?"s":""} de prueba ({pruebas.map(s=>fCorta(s.startedAt)).join(", ")}): tiros capturados a menos de 1.5 s entre uno y otro.</p>}
+        </div>
+
+        {/* rachas */}
+        <div className="card">
+          <h2>Racha más larga</h2>
+          <p className="lab-q">Encestes seguidos en los tiros de línea, aunque cambies de posición.</p>
+          <div className="record"><span className="r">{calc.recL.r}</span><span className="d">encestes seguidos · récord del {fecha(calc.recL.f).split(" · ")[0]}</span></div>
+          {(()=>{const R=calc.rachas, W=400, H=170, x0=4, x1=W-4, y0=18, y1=H-34, mx=Math.max(...R.map(x=>x.r),5), ys=v=>y1-v/mx*(y1-y0), bw=(x1-x0)/R.length;
+            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
+              {R.map((x,i)=>{const cx=x0+i*bw+bw/2, rec=x===calc.recL; return <g key={i}>
+                <rect x={cx-Math.min(22,bw*.36)} y={ys(x.r)} width={Math.min(44,bw*.72)} height={y1-ys(x.r)} rx="3" fill={rec?"var(--gold)":"var(--accent)"} opacity={rec?1:.75}/>
+                <text x={cx} y={ys(x.r)-5} textAnchor="middle" className="lb">{x.r}</text>
+                {(R.length<=8||i%2===(R.length-1)%2||rec)&&<text x={cx} y={H-16} textAnchor="middle">{fCorta(x.f)}</text>}
+              </g>})}
+              <line x1={x0} x2={x1} y1={y1} y2={y1} stroke="var(--line-strong)"/>
+            </svg>})()}
+          {calc.recT&&<div className="record" style={{marginBottom:0}}><span className="r">{calc.recT.rtl}</span><span className="d">tiros libres seguidos · récord del {fecha(calc.recT.f).split(" · ")[0]}</span></div>}
+        </div>
+
+        {/* costo por posición */}
+        <div className="card">
+          <h2>Costo por posición</h2>
+          <p className="lab-q">¿Cuántos tiros cuesta cada enceste y dónde se va el entrenamiento?</p>
+          <Barras filas={calc.costo.map(c=>({...c,c:c===calc.costo.reduce((a,b)=>b.v>a.v?b:a)?"var(--accent)":"var(--line-strong)",tenue:c.t<30}))}
+                  max={Math.max(2,...calc.costo.map(c=>c.v))} etiq={110} fmt={f=>f.v.toFixed(2)+" tiros/enceste · "+Math.round(f.share*100)+"% del volumen"}/>
+          {(()=>{const c=calc.costo.reduce((a,b)=>b.v>a.v?b:a); return <p className="lab-read">{c.k} se lleva el <b>{Math.round(c.share*100)}%</b> de los tiros; cada enceste ahí cuesta {c.v.toFixed(2)} tiros. Es el punto donde más rinde mejorar.</p>})()}
+          <p className="lab-ojo">Como cada posición termina al llegar a N encestes, el volumen es consecuencia de la efectividad. Por eso se compara el costo, no los tiros crudos.</p>
+        </div>
+
+        {/* tendencia */}
+        <div className="card">
+          <h2>Tendencia con margen de error</h2>
+          <p className="lab-q">¿Mejora de verdad o es variación normal de un día a otro?</p>
+          {(()=>{const T=calc.tend, W=400, H=210, x0=34, x1=W-6, y0=12, y1=H-36, lo=Math.max(0,Math.floor(Math.min(...T.map(x=>x.lo))*10)/10), hi=Math.min(1,Math.ceil(Math.max(...T.map(x=>x.hi))*10)/10),
+              ys=v=>y1-(v-lo)/(hi-lo||1)*(y1-y0), xs=i=>x0+(i+.5)*(x1-x0)/T.length, ticks=[]; for(let v=lo;v<=hi+1e-9;v+=.1)ticks.push(v);
+            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
+              {ticks.map(v=><g key={v}><line x1={x0} x2={x1} y1={ys(v)} y2={ys(v)} stroke="var(--line)"/><text x={x0-5} y={ys(v)+4} textAnchor="end">{Math.round(v*100)}%</text></g>)}
+              <line x1={x0} x2={x1} y1={ys(media)} y2={ys(media)} stroke="var(--gold)" strokeWidth="2" strokeDasharray="6 4"/>
+              {T.map((x,i)=><g key={i}>
+                <rect x={xs(i)-4} y={ys(x.hi)} width="8" height={ys(x.lo)-ys(x.hi)} rx="3" fill="var(--line-strong)" opacity=".55"/>
+                <circle cx={xs(i)} cy={ys(x.p)} r={Math.max(4,Math.min(9,Math.sqrt(x.n)/2))} fill="var(--accent)"/>
+                {(T.length<=8||i%2===(T.length-1)%2)&&<text x={xs(i)} y={H-18} textAnchor="middle">{fCorta(x.f)}</text>}
+                {(T.length<=8||i%2===(T.length-1)%2)&&<text x={xs(i)} y={H-4} textAnchor="middle" opacity=".7">{x.n} tiros</text>}
+              </g>)}
+            </svg>})()}
+          <div className="lab-leg"><span><i style={{background:"var(--accent)"}}/>% de la jornada</span><span><i style={{background:"var(--line-strong)"}}/>rango probable (95%)</span><span><i style={{background:"var(--gold)"}}/>promedio {p1(media)}</span></div>
+          {(()=>{const T=calc.tend; if(T.length<4) return <p className="lab-read">Con {T.length} jornada{T.length>1?"s":""} todavía no hay tendencia que leer.</p>;
+            const h=Math.floor(T.length/2), a=T.slice(0,h), b=T.slice(-h), pa=a.reduce((s,x)=>s+x.p*x.n,0)/a.reduce((s,x)=>s+x.n,0), pb=b.reduce((s,x)=>s+x.p*x.n,0)/b.reduce((s,x)=>s+x.n,0);
+            return <p className="lab-read">Las últimas {h} jornadas van en <b>{p1(pb)}</b> contra {p1(pa)} de las primeras {h}{pb-pa>.02?": la tendencia es positiva.":pb-pa<-.02?": vale la pena revisar qué cambió.":", prácticamente estable."}</p>})()}
+          <p className="lab-ojo">Con 100 a 250 tiros por jornada el rango es de unos ±7 puntos. Dos jornadas cuyas barras se enciman pueden ser el mismo nivel.</p>
+        </div>
+
+        {/* mano caliente */}
+        <div className="card">
+          <h2>¿Existe la racha?</h2>
+          <p className="lab-q">Después de encestar, ¿de verdad es más probable volver a encestar?</p>
+          <Barras filas={[{k:"Después de enceste",v:calc.mc.pa,c:"var(--made)"},{k:"Después de fallo",v:calc.mc.pb,c:"var(--miss)"}]} max={1} fmt={f=>p1(f.v)}/>
+          <Barras filas={[{k:"Brecha observada",v:Math.max(0,calc.mc.d)*100,c:"var(--ink)"},{k:"Esperada por la regla",v:Math.max(0,calc.mc.esperado)*100,c:"var(--line-strong)"}]}
+                  max={Math.max(15,calc.mc.d*100+2)} fmt={f=>f.v.toFixed(1)+" pts"}/>
+          {(()=>{const real=(calc.mc.d-calc.mc.esperado)*100, sig=calc.mc.p<.05&&real>0;
+            return <p className="lab-read">A simple vista hay {(calc.mc.d*100).toFixed(1)} puntos de diferencia, pero solo por la regla de "tirar hasta N encestes" ya se esperan {(calc.mc.esperado*100).toFixed(1)}. {sig?<span>Quedan <b>{real.toFixed(1)} puntos</b> que sí parecen racha real (p = {calc.mc.p.toFixed(2)}).</span>:<span>Lo que queda ({real.toFixed(1)} pts, p = {calc.mc.p.toFixed(2)}) <b>no se distingue del azar</b>.</span>}</p>})()}
+          <p className="lab-ojo">Corrección con 300 simulaciones que barajan los tiros de cada punto respetando que el último es el enceste que lo cierra.</p>
+        </div>
+
+        {/* ritmo */}
+        <div className="card">
+          <h2>Ritmo de tiro</h2>
+          <p className="lab-q">¿Tira mejor rápido o tomándose su tiempo?</p>
+          {(()=>{const R=calc.ritmo, W=400, H=210, x0=32, x1=W-6, y0=18, y1=H-40, ys=v=>y1-v*(y1-y0), gw=(x1-x0)/R.length, bw=Math.min(40,gw*.38);
+            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
+              {[0,.25,.5,.75,1].map(v=><g key={v}><line x1={x0} x2={x1} y1={ys(v)} y2={ys(v)} stroke="var(--line)"/><text x={x0-5} y={ys(v)+4} textAnchor="end">{v*100}%</text></g>)}
+              {R.map((r,i)=>{const gx=x0+i*gw+gw/2; return <g key={i}>
+                {[[r.e,"var(--made)",-bw-3],[r.f,"var(--miss)",3]].map(([d,c,dx],j)=>{const v=d.t?d.m/d.t:0; return d.t?<g key={j} opacity={d.t<30?.45:1}>
+                  <rect x={gx+dx} y={ys(v)} width={bw} height={y1-ys(v)} rx="4" fill={c}/>
+                  <text x={gx+dx+bw/2} y={ys(v)-5} textAnchor="middle" className="lb">{Math.round(v*100)}%</text>
+                  <text x={gx+dx+bw/2} y={y1+13} textAnchor="middle" opacity=".7" style={{fontSize:9.5}}>{d.t}</text></g>:null})}
+                <text x={gx} y={H-6} textAnchor="middle" className="lb">{r.k}</text></g>})}
+            </svg>})()}
+          <div className="lab-leg"><span><i style={{background:"var(--made)"}}/>el tiro anterior entró</span><span><i style={{background:"var(--miss)"}}/>el anterior falló</span></div>
+          {calc.gapMed&&<p className="lab-read">El tiempo típico entre tiros es <b>{calc.gapMed.toFixed(1)} s</b>. Compara las barras del mismo color: así se ve el efecto del ritmo sin la trampa del rebote.</p>}
+          <p className="lab-ojo">Un fallo rebota lejos y el siguiente tiro tarda más; por eso se separa por resultado anterior. Aun así es correlación: confírmalo con bloques cronometrados.</p>
+        </div>
+
+        {/* fatiga */}
+        {calc.fatiga.length>=2&&
+        <div className="card">
+          <h2>Curva de fatiga</h2>
+          <p className="lab-q">¿Baja la efectividad conforme avanza la jornada?</p>
+          {(()=>{const F=calc.fatiga, W=400, H=190, x0=32, x1=W-6, y0=22, y1=H-40, lo=Math.floor(Math.min(...F.map(x=>x.p))*10)/10, hi=Math.min(1,Math.ceil(Math.max(...F.map(x=>x.p))*10)/10+.0001),
+              ys=v=>y1-(v-lo)/(hi-lo||.1)*(y1-y0), xs=i=>x0+16+i*(x1-x0-32)/Math.max(1,F.length-1), ticks=[]; for(let v=lo;v<=hi;v+=.1)ticks.push(v);
+            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
+              {ticks.map(v=><g key={v}><line x1={x0} x2={x1} y1={ys(v)} y2={ys(v)} stroke="var(--line)"/><text x={x0-5} y={ys(v)+4} textAnchor="end">{Math.round(v*100)}%</text></g>)}
+              <path d={F.map((x,i)=>(i?"L":"M")+xs(i)+" "+ys(x.p)).join("")} fill="none" stroke="var(--accent)" strokeWidth="2.5"/>
+              {F.map((x,i)=><g key={i} opacity={x.n<100?.45:1}>
+                <circle cx={xs(i)} cy={ys(x.p)} r="5" fill="var(--accent)"/>
+                <text x={xs(i)} y={ys(x.p)-10} textAnchor="middle" className="lb">{Math.round(x.p*100)}%</text>
+                <text x={xs(i)} y={H-20} textAnchor="middle" style={{fontSize:9.5}}>{x.k}</text>
+                <text x={xs(i)} y={H-6} textAnchor="middle" opacity=".7" style={{fontSize:9.5}}>{x.n}</text></g>)}
+            </svg>})()}
+          {(()=>{const F=calc.fatiga.filter(x=>x.n>=100); if(F.length<2) return null; const d=F[F.length-1].p-F[0].p;
+            return <p className="lab-read">{d<-.03?<span>Baja <b>{(-d*100).toFixed(1)} puntos</b> del inicio al final: hay señal de cansancio.</span>:d>.03?<span>Sube {(d*100).toFixed(1)} puntos del inicio al final: pesa más el calentamiento que el cansancio.</span>:<span>Se mantiene estable: <b>no hay señal de fatiga</b>.</span>}</p>})()}
+          <div className="lab-leg"><span>Eje inferior: número de tiro dentro de la jornada y cuántos tiros hay en cada tramo.</span></div>
+          <p className="lab-ojo">Los tramos finales tienen menos tiros (se ven tenues) y solo los alcanzan las jornadas largas.</p>
+        </div>}
+
+        {/* consistencia */}
+        {calc.puntos.length>=4&&
+        <div className="card">
+          <h2>Puntos confiables y volátiles</h2>
+          <p className="lab-q">¿Dónde es predecible y dónde depende del día?</p>
+          {(()=>{const P=calc.puntos, W=400, H=260, x0=34, x1=W-10, y0=14, y1=H-36, lo=Math.floor(Math.min(...P.map(x=>x.mu))*10)/10, mxs=Math.max(.25,Math.ceil(Math.max(...P.map(x=>x.sd))*20)/20),
+              xs=v=>x0+(v-lo)/(1-lo||1)*(x1-x0), ys=v=>y1-v/mxs*(y1-y0), sdO=P.map(x=>x.sd).sort((a,b)=>a-b), alto=sdO[Math.max(0,sdO.length-3)], bajo=sdO[Math.min(1,sdO.length-1)], xt=[], yt=[];
+            for(let v=lo;v<=1.0001;v+=.1)xt.push(v); for(let v=0;v<=mxs+1e-9;v+=.05)yt.push(v);
+            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
+              {xt.map(v=><g key={v}><line x1={xs(v)} x2={xs(v)} y1={y0} y2={y1} stroke="var(--line)"/><text x={xs(v)} y={y1+15} textAnchor="middle">{Math.round(v*100)}%</text></g>)}
+              {yt.map(v=><g key={v}><line x1={x0} x2={x1} y1={ys(v)} y2={ys(v)} stroke="var(--line)" opacity=".6"/><text x={x0-5} y={ys(v)+4} textAnchor="end">±{Math.round(v*100)}</text></g>)}
+              <text x={(x0+x1)/2} y={H-4} textAnchor="middle">efectividad promedio →</text>
+              <text x={x0+4} y={y0+10}>↑ más volátil</text>
+              {P.map(x=>{const hot=x.sd>=alto, safe=x.sd<=bajo, c=hot?"var(--miss)":safe?"var(--made)":"var(--ink-soft)", der=xs(x.mu)>x1-40; return <g key={x.k}>
+                <circle cx={xs(x.mu)} cy={ys(x.sd)} r={hot||safe?7:5} fill={c} opacity={hot||safe?1:.5}/>
+                {(hot||safe)&&<text x={xs(x.mu)+(der?-10:10)} y={ys(x.sd)+4} textAnchor={der?"end":"start"} className="lb">{x.k}</text>}</g>})}
+            </svg>})()}
+          <div className="lab-leg"><span><i style={{background:"var(--made)"}}/>confiables</span><span><i style={{background:"var(--miss)"}}/>volátiles</span></div>
+          {(()=>{const P=calc.puntos.slice().sort((a,b)=>a.sd-b.sd); return <p className="lab-read">Más confiables: <b>{P.slice(0,2).map(x=>x.k).join(" y ")}</b>. Más volátiles: <b>{P.slice(-3).reverse().map(x=>x.k).join(", ")}</b>; ahí conviene trabajar mecánica más que volumen.</p>})()}
+          <p className="lab-ojo">Cada punto tiene pocos tiros por jornada, así que parte de la variación es ruido. Lo útil es el orden, no el valor exacto.</p>
+        </div>}
+
+        {/* tiros libres */}
+        {!!calc.ord.length&&
+        <div className="card">
+          <h2>Tiros libres en secuencia</h2>
+          <p className="lab-q">¿Cómo cambia el libre según el orden en la serie?</p>
+          <Barras filas={calc.ord.map((o,i)=>({k:o.k,v:o.m/o.t,n:o.t,c:i===0?"var(--accent)":"var(--line-strong)",tenue:o.t<20}))} max={1} fmt={f=>Math.round(f.v*100)+"%  n="+f.n}/>
+          <p className="lab-read">El primer libre de la serie entra {Math.round(calc.ord[0].m/calc.ord[0].t*100)}% ({calc.ord[0].m} de {calc.ord[0].t}); en total {pct(mT,libres.length)}%.</p>
+          <p className="lab-ojo">Se suman encestes y tiros del periodo, nunca se promedian porcentajes, porque las jornadas viejas eran de 10 intentos y las nuevas son hasta 10 encestes.</p>
+        </div>}
+
+        {/* partido */}
+        {!!tirosJuego.length&&
+        <div className="card">
+          <h2>Práctica contra partido</h2>
+          <p className="lab-q">¿Cuánto de lo que encesta en práctica llega al juego?</p>
+          {(()=>{const z=porZona(tirosJuego), mJ=tirosJuego.filter(x=>x.made).length;
+            const filas=[{k:"Práctica (línea)",v:media,txt:mL+" / "+linea.length,c:"var(--accent)"},{k:"Partido · total",v:mJ/tirosJuego.length,txt:mJ+" / "+tirosJuego.length,c:"var(--gold)"}]
+              .concat(ZONAS.filter(k=>z[k].t>0).map(k=>({k:"Partido · "+ZONA_NOM[k].toLowerCase(),v:z[k].m/z[k].t,txt:z[k].m+" / "+z[k].t,c:"var(--line-strong)",tenue:z[k].t<MIN_ZONA})));
+            return <Barras filas={filas} max={1} etiq={200} fmt={f=>p1(f.v)+"  "+f.txt}/>})()}
+          <p className="lab-ojo">{partidos.length<5?`Con ${partidos.length} partido${partidos.length>1?"s":""} todavía no es tendencia; este módulo se vuelve el más valioso a partir de 5.`:`Basado en ${partidos.length} partidos.`}</p>
+        </div>}
+      </React.Fragment>}
+      <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
+    </div>
+  );
+}
+
 /* ---------- ajustes ---------- */
 function Ajustes({onHome,toast,onSync,pendientes}){
   const [url,setUrl]=useState(syncUrl());
@@ -1494,6 +1760,8 @@ function App(){
                                 onHome={()=>{setGame(null);setScreen("home")}}/>);
   if(screen==="analisis")
     return chrome(<Analisis sessions={sessions} players={nombres} onHome={()=>setScreen("home")}/>);
+  if(screen==="laboratorio")
+    return chrome(<Laboratorio sessions={sessions} games={games} players={[playerId]} inicial={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")
     return chrome(<Ajustes onHome={()=>setScreen("home")} toast={toast} pendientes={pending.length} onSync={sincronizar}/>);
   return chrome(
@@ -1501,7 +1769,7 @@ function App(){
           cfg={cfg} setCfg={setCfg} sessions={sessions} games={games} onStart={start} onJuego={startJuego}
           onOpen={s=>{setSession(s);setScreen("summary")}}
           onOpenJuego={g=>{setGame(g);setScreen("juegoResumen")}}
-          onAnalisis={()=>setScreen("analisis")} onAjustes={()=>setScreen("ajustes")}
+          onAnalisis={()=>setScreen("analisis")} onLaboratorio={()=>{window.scrollTo(0,0);setScreen("laboratorio")}} onAjustes={()=>setScreen("ajustes")}
           syncState={pending.length?"pend":online?"on":"off"}/>);
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);

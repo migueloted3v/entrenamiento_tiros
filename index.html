@@ -206,6 +206,15 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .lab-tabla td{padding:7px 4px;border-bottom:1px solid var(--surface-2)}
 .lab-tabla td.rec{color:var(--ink);font-weight:700;background:color-mix(in srgb,var(--gold) 30%,transparent);border-radius:6px}
 .lab-ext{background:var(--surface-2);border-radius:11px;padding:11px 12px;display:flex;flex-direction:column;gap:2px;border-left:4px solid var(--line-strong)}
+.coach-plan{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.coach-plan li b{display:block}.coach-plan li span{color:var(--ink-soft);font-size:13.5px}
+.coach-h{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}.coach-h h2{margin:2px 0 0;line-height:1.15}
+.coach-bien{margin:0 0 12px;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.4}
+.coach-ic{font-size:26px;line-height:1}
+.coach-n{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.coach-dato{margin:0 0 12px;line-height:1.45}
+.coach-ej{background:var(--surface-2);border-radius:11px;padding:12px 14px;border-left:4px solid var(--gold)}
+.coach-ej p{margin:6px 0 0;line-height:1.45}.coach-meta{font-weight:600}
 .lab-ext.alto{border-left-color:var(--made)}
 .lab-ext.bajo{border-left-color:var(--miss)}
 .lab-ext .et{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600}
@@ -470,7 +479,7 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
 }
 
 /* ---------- inicio ---------- */
-function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onLaboratorio,onAjustes,syncState,vivo,onRetomar,onDescartarVivo}){
+function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onLaboratorio,onCoach,onAjustes,syncState,vivo,onRetomar,onDescartarVivo}){
   const [seguro,setSeguro]=useState(false);
   const [nuevo,setNuevo]=useState("");
   const [rival,setRival]=useState("");
@@ -538,6 +547,7 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
         {puestos?`Iniciar en A${cfg.positions[0]+1}`:"Elige al menos una posición"}
       </button>
       <button className="btn btn-quiet" onClick={()=>setAskJuego(true)} disabled={!playerId}>Capturar un partido</button>
+      <button className="btn btn-quiet" onClick={onCoach} disabled={!playerId}>{playerId?`Coach de ${playerId}`:"Coach"}</button>
       <button className="btn btn-quiet" onClick={onLaboratorio} disabled={!playerId}>{playerId?`Laboratorio de ${playerId}`:"Laboratorio"}</button>
       <button className="btn btn-quiet" onClick={onAnalisis} disabled={!playerId}>{playerId?`Análisis de ${playerId}`:"Análisis"}</button>
 
@@ -1291,6 +1301,125 @@ function HojaImagenes({imgs,nombre,toast,onClose}){
     </div>);
 }
 
+/* Coach: reglas sobre las últimas jornadas → comentario + ejercicio con meta medible */
+const pc=v=>Math.round(v*100)+"%";
+function reglasCoach(js,partidos){
+  const out=[], bien=[], linea=js.reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]), libres=js.reduce((a,s)=>a.concat(s.shots.filter(isFT)),[]);
+  const pL=agg(linea,()=>true), media=pL.t?pL.m/pL.t:0;
+  /* 1. posición más cara */
+  const pos=POS.map((P,j)=>{const a=agg(linea,x=>x.pos===j); return {P,j,t:a.t,m:a.m,p:a.t?a.m/a.t:0};}).filter(x=>x.t>=25);
+  if(pos.length>=2){ const w=pos.reduce((a,b)=>b.p<a.p?b:a), b=pos.reduce((a,b)=>b.p>a.p?b:a);
+    if(b.p-w.p>=.08){ const lin=LINES.map((L,i)=>({L,...agg(linea,x=>x.pos===w.j&&x.line===i)})).filter(x=>x.t>=6).map(x=>({...x,p:x.m/x.t}));
+      const peor=lin.length?lin.reduce((a,b)=>b.p<a.p?b:a):null;
+      out.push({k:"pos",peso:(b.p-w.p)*w.t/linea.length*10,ic:"🎯",t:`La posición ${w.P} es la que más le cuesta`,
+        dato:`Encesta ${pc(w.p)} desde la ${w.P} contra ${pc(b.p)} desde la ${b.P}. Necesita ${(1/w.p).toFixed(2)} tiros por enceste.${peor?` El punto más difícil es ${peor.L}${w.P} (${peor.m} de ${peor.t}).`:""}`,
+        ej:"Escalera en la posición "+w.P, dosis:`3 series de 10 tiros desde ${peor?peor.L+w.P:"la posición "+w.P}, al inicio de la jornada, cuando está fresca. Descanso de 1 minuto entre series.`,
+        meta:`Subir la posición ${w.P} a ${pc(Math.min(b.p,w.p+.08))} en las próximas jornadas.`}); } }
+  /* 1b. línea más débil */
+  const lin=LINES.map((L,i)=>{const a=agg(linea,x=>x.line===i); return {L,i,...a,p:a.t?a.m/a.t:0};}).filter(x=>x.t>=40);
+  if(lin.length>=3){ const w=lin.reduce((a,b)=>b.p<a.p?b:a), b=lin.reduce((a,b)=>b.p>a.p?b:a);
+    if(b.p-w.p>=.06) out.push({k:"lin",peso:(b.p-w.p)*4,ic:"📐",t:`La línea ${w.L} va por debajo`,
+      dato:`En la línea ${w.L} encesta ${pc(w.p)} (${w.m} de ${w.t}); en la ${b.L}, ${pc(b.p)}. ${w.L==="A"||w.L==="E"?"Es una línea de esquina: el tablero no ayuda, así que el tiro tiene que entrar limpio.":w.L==="C"?"Es la línea de frente: buen lugar para usar el tablero solo en los tiros cortos.":"Es una diagonal: el tablero ayuda si apunta a la esquina del cuadro."}`,
+      ej:`Línea ${w.L} de ida y vuelta`, dosis:`Recorrer la línea ${w.L} de la posición 1 a la 5 y de regreso, 2 encestes en cada punto. 2 vueltas al final del calentamiento.`,
+      meta:`Llevar la línea ${w.L} a ${pc(Math.min(b.p,w.p+.05))}.`}); }
+  /* 2. fatiga: primeros 40 contra después del tiro 120 */
+  /* se compara contra lo esperado en cada punto, porque la jornada empieza en las posiciones fáciles */
+  const esp={}; linea.forEach(x=>{const k=x.line+"-"+x.pos; esp[k]=esp[k]||{m:0,t:0}; esp[k].t++; if(x.made)esp[k].m++;});
+  let a1={r:0,t:0},a3={r:0,t:0}; js.forEach(s=>s.shots.filter(x=>!isFT(x)).slice().sort((a,b)=>a.t-b.t).forEach((x,i)=>{const d=i<40?a1:i>=120?a3:null; if(d){const e=esp[x.line+"-"+x.pos]; d.t++; d.r+=(x.made?1:0)-e.m/e.t;}}));
+  if(a1.t>=40&&a3.t>=40){ const d=a1.r/a1.t-a3.r/a3.t;
+    if(d>=.04) out.push({k:"fat",peso:d*8,ic:"🔋",t:"Baja cuando se cansa",
+      dato:`Comparado con su promedio en cada punto, en los primeros 40 tiros va ${d>0?"":"-"}${Math.round(a1.r/a1.t*100)} puntos y después del tiro 120 va ${Math.round(a3.r/a3.t*100)}. Pierde unos ${Math.round(d*100)} puntos de efectividad al final.`,
+      ej:"Tiros con cansancio", dosis:"Al terminar la jornada, 10 sentadillas y enseguida 5 tiros desde su posición favorita. Repetir 3 veces. Pierna flexionada en cada tiro.",
+      meta:"Que la caída al final de la jornada sea menor a 3 puntos."});
+    else if(d<=0) bien.push(`Aguanta el cansancio: después del tiro 120 tira igual o mejor que al principio, comparado con su promedio en cada punto.`); }
+  /* 3. reacción después de fallar (mismo punto) */
+  const bl=bloquesDe(js), br=manoCaliente(bl), exc=br.d-br.esperado;
+  if(br.nb>=40&&exc>=.04) out.push({k:"fallo",peso:exc*10,ic:"🧠",t:"Después de un fallo le cuesta reponerse",
+    dato:`Tras encestar, el siguiente entra ${pc(br.pa)} de las veces. Tras fallar, solo ${pc(br.pb)}. Ya descontando el efecto de la regla de "tirar hasta N encestes", la diferencia real es de ${Math.round(exc*100)} puntos.`,
+    ej:"Rutina de reinicio", dosis:"Después de cada fallo: un paso atrás, una respiración, 2 botes y tirar. Siempre la misma rutina, aunque el tiro anterior haya entrado.",
+    meta:`Acercar el % después de fallar a ${pc(br.pb+.05)}.`});
+  else if(br.nb>=40&&exc<.02) bien.push(`Se repone bien de un fallo: después de fallar tira prácticamente igual que siempre.`);
+  /* 4. ritmo */
+  const rit=(a,b)=>{const o={m:0,t:0}; bl.forEach(v=>{for(let i=1;i<v.length;i++){const g=v[i].gap/1000; if(v[i-1].made&&g>=a&&g<b){o.t++; if(v[i].made)o.m++;}}}); return o;};
+  const rap=rit(0,4), cal=rit(6,9);
+  if(rap.t>=30&&cal.t>=30&&cal.m/cal.t-rap.m/rap.t>=.05) out.push({k:"rit",peso:(cal.m/cal.t-rap.m/rap.t)*6,ic:"⏱️",t:"Tira mejor sin prisa",
+    dato:`Contando solo tiros después de un enceste (para no mezclar el rebote largo de un fallo): cuando tira en menos de 4 segundos encesta ${pc(rap.m/rap.t)}. Tomándose de 6 a 9 segundos, ${pc(cal.m/cal.t)}.`,
+    ej:"Tiro con pausa", dosis:"En la siguiente jornada, contar en voz baja \"uno, dos\" con el balón en la mano antes de cada tiro. Pies firmes antes de subir.",
+    meta:`Que los tiros rápidos se acerquen a ${pc(cal.m/cal.t)}.`});
+  else if(rap.t>=30&&cal.t>=30&&rap.m/rap.t>=cal.m/cal.t) bien.push(`Su ritmo rápido le funciona: en menos de 4 segundos encesta ${pc(rap.m/rap.t)}, sin perder precisión.`);
+  /* 5. tiros libres */
+  const pT=agg(libres,()=>true);
+  if(pT.t>=20){ const ord=libres.length?js.map(s=>s.shots.filter(isFT).slice().sort((a,b)=>a.t-b.t)):[];
+    const pri=agg(ord.map(v=>v[0]).filter(Boolean),x=>true), p1=pri.t?pri.m/pri.t:0, pTL=pT.m/pT.t;
+    if(pri.t>=5&&pTL-p1>=.1) out.push({k:"tl1",peso:(pTL-p1)*5,ic:"🆓",t:"El primer tiro libre es el más difícil",
+      dato:`El primer libre de la serie entra ${pc(p1)} (${pri.m} de ${pri.t}). En total encesta ${pc(pTL)} de libres.`,
+      ej:"Primer libre en frío", dosis:"A mitad de la jornada, parar, caminar a la línea y tirar un solo libre. Anotar si entró. 5 veces por jornada, en momentos distintos.",
+      meta:"Que el primer libre llegue a "+pc(Math.min(.9,p1+.1))+"."});
+    else if(pTL<.75) out.push({k:"tl",peso:(.75-pTL)*6,ic:"🆓",t:"Los tiros libres tienen margen",
+      dato:`Encesta ${pc(pTL)} de libres (${pT.m} de ${pT.t}).`,
+      ej:"Rutina fija de libre", dosis:"Misma rutina en cada libre: 3 botes, respirar, mirar el aro y tirar. 2 series de 10 libres.",
+      meta:"Llegar a 75% de libres."});
+    else { bien.push(`Tiros libres sólidos: ${pc(pTL)} (${pT.m} de ${pT.t}).`);
+      out.push({k:"tl",peso:.05,ic:"🆓",t:"Libres: subir la exigencia",
+        dato:`Con ${pc(pTL)} en libres ya está en buen nivel. El siguiente paso es tirarlos con presión, como en el partido.`,
+        ej:"Dos seguidos o castigo", dosis:"Tirar libres de 2 en 2, como en una falta. Si falla alguno de los dos, 3 sentadillas y vuelve a empezar. Terminar al juntar 5 pares perfectos.",
+        meta:"5 pares perfectos en menos de 14 pares."}); } }
+  /* 6. práctica contra partido */
+  const tj=partidos.reduce((a,g)=>a.concat(g.shots),[]), cj=agg(tj,()=>true);
+  if(cj.t>=15&&media-cj.m/cj.t>=.15) out.push({k:"part",peso:(media-cj.m/cj.t)*4*Math.min(1,cj.t/60),ic:"🆚",t:"En el partido no sale lo de la práctica",
+    dato:`En práctica encesta ${pc(media)} de línea. En partidos, ${pc(cj.m/cj.t)} de campo (${cj.m} de ${cj.t}). Parte es normal por la defensa${cj.t<40?", y todavía son pocos tiros de partido":""}, pero la brecha es grande.`,
+    ej:"Tiro con presión", dosis:"Tiros con alguien levantando la mano enfrente, o contra reloj: 10 tiros en 60 segundos desde distintas posiciones.",
+    meta:"Acortar la brecha entre práctica y partido."});
+  if(js.length>=4){ const h=Math.floor(js.length/2), A=agg(js.slice(0,h).reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]),()=>true), B=agg(js.slice(h).reduce((a,s)=>a.concat(s.shots.filter(x=>!isFT(x))),[]),()=>true);
+    const d=B.m/B.t-A.m/A.t; if(d>=.02) bien.push(`Va mejorando: en sus ${js.length-h} jornadas más recientes encesta ${pc(B.m/B.t)}, contra ${pc(A.m/A.t)} de las ${h} anteriores.`); }
+  out.sort((a,b)=>b.peso-a.peso);
+  /* fortaleza: mejor punto con volumen */
+  const pts=[]; LINES.forEach((L,i)=>POS.forEach((P,j)=>{const a=agg(linea,x=>x.line===i&&x.pos===j); if(a.t>=15)pts.push({k:L+P,...a,p:a.m/a.t});}));
+  const top=pts.sort((a,b)=>b.p-a.p).slice(0,3);
+  return {out,bien,top,media,n:js.length};
+}
+
+function Coach({sessions,games,player,onHome}){
+  const todas=sessions.filter(s=>s.playerName===player&&!esPrueba(s)).slice().sort((a,b)=>String(a.startedAt).localeCompare(String(b.startedAt)));
+  const js=todas.slice(-6), partidos=games.filter(g=>g.playerName===player);
+  const r=useMemo(()=>js.length?reglasCoach(js,partidos):null,[player,sessions,games]);
+  return (
+    <div className="wrap">
+      <button className="back" onClick={onHome}>← Inicio</button>
+      <div className="masthead"><div><h1>Coach</h1><p>Qué trabajar con {player}</p></div></div>
+      {!r||js.length<2 ? <div className="card"><p className="hint">El Coach necesita al menos 2 jornadas de {player} para sugerir ejercicios.</p></div> : <>
+      <div className="card">
+        <h2>Plan de la semana</h2>
+        <p className="hint" style={{marginBottom:10}}>Con base en sus últimas {js.length} jornadas ({fCorta(js[0].startedAt)} a {fCorta(js[js.length-1].startedAt)}). Las prioridades van de mayor a menor impacto.</p>
+        {r.out.length? <ol className="coach-plan">{r.out.slice(0,3).map(x=><li key={x.k}><b>{x.ej}</b><span>{x.t}</span></li>)}</ol>
+          : <p>No hay focos rojos: sus números están parejos. Mantener la rutina y subir el número de encestes por posición.</p>}
+      </div>
+      {r.out.map((x,i)=>(
+        <div className="card coach" key={x.k}>
+          <div className="coach-h"><span className="coach-ic">{x.ic}</span><div><div className="coach-n">Prioridad {i+1}</div><h2>{x.t}</h2></div></div>
+          <p className="coach-dato">{x.dato}</p>
+          <div className="coach-ej">
+            <div className="coach-n">Ejercicio</div>
+            <b>{x.ej}</b>
+            <p>{x.dosis}</p>
+            <p className="coach-meta">🎯 Meta: {x.meta}</p>
+          </div>
+        </div>))}
+      {r.top.length>0&&
+        <div className="card coach">
+          <div className="coach-h"><span className="coach-ic">💪</span><div><div className="coach-n">Lo que ya domina</div><h2>Lo que va bien</h2></div></div>
+          <div className="lab-duo" style={{gridTemplateColumns:`repeat(${r.top.length},1fr)`}}>
+            {r.top.map(p=><div key={p.k} className="lab-ext alto"><span className="lab-sub">{p.k}</span><b style={{fontSize:24,fontFamily:"'Barlow Condensed',sans-serif"}}>{pc(p.p)}</b><span className="hint">{p.m} de {p.t}</span></div>)}
+          </div>
+          {r.bien.length>0&&<ul className="coach-bien">{r.bien.map((b,i)=><li key={i}>{b}</li>)}</ul>}
+          <p className="coach-dato" style={{margin:0}}>Usa sus puntos fuertes para calentar y para cerrar la jornada con confianza: terminar con un enceste desde ahí.</p>
+        </div>}
+      <p className="hint" style={{margin:"4px 4px 14px"}}>Las sugerencias se recalculan solas con cada jornada nueva. Son una guía a partir de los números; el criterio del entrenador manda.</p>
+      </>}
+      <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
+    </div>);
+}
+
 function Laboratorio({sessions,games,players,inicial,onHome,toast}){
   const [sel,setSel]=useState(inicial||players[0]||null);
   const [enviando,setEnviando]=useState(false);
@@ -1927,6 +2056,8 @@ function App(){
     return chrome(<Analisis sessions={sessions} player={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="laboratorio")
     return chrome(<Laboratorio sessions={sessions} games={games} players={[playerId]} inicial={playerId} toast={toast} onHome={()=>setScreen("home")}/>);
+  if(screen==="coach")
+    return chrome(<Coach sessions={sessions} games={games} player={playerId} onHome={()=>setScreen("home")}/>);
   if(screen==="ajustes")
     return chrome(<Ajustes onHome={()=>setScreen("home")} toast={toast} pendientes={pending.length} onSync={sincronizar}/>);
   return chrome(
@@ -1934,7 +2065,7 @@ function App(){
           cfg={cfg} setCfg={setCfg} sessions={sessions} games={games} onStart={start} onJuego={startJuego}
           onOpen={s=>{setSession(s);setScreen("summary")}}
           onOpenJuego={g=>{setGame(g);setScreen("juegoResumen")}}
-          onAnalisis={()=>setScreen("analisis")} onLaboratorio={()=>{window.scrollTo(0,0);setScreen("laboratorio")}} onAjustes={()=>setScreen("ajustes")}
+          onAnalisis={()=>setScreen("analisis")} onLaboratorio={()=>{window.scrollTo(0,0);setScreen("laboratorio")}} onCoach={()=>{window.scrollTo(0,0);setScreen("coach")}} onAjustes={()=>setScreen("ajustes")}
           syncState={pending.length?"pend":online?"on":"off"}
           vivo={vivo} onRetomar={()=>{setGame(vivo);setScreen("juego")}} onDescartarVivo={soltarVivo}/>);
 }

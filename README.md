@@ -86,6 +86,30 @@ Desde la pantalla principal, **Análisis de [jugador]** muestra solo a quien est
 
 ---
 
+## 🧑‍🏫 Coach: qué trabajar y cómo
+
+El botón **Coach de [jugador]** convierte los números en un plan de entrenamiento. Revisa las últimas 6 jornadas y, para cada área de mejora, da:
+
+- 📊 **El dato**: qué dicen sus números, con encestes y tiros reales.
+- 🏋️ **El ejercicio**: qué hacer, cuántos tiros y en qué momento de la jornada.
+- 🎯 **La meta**: un número concreto para saber si funcionó.
+
+Arriba aparece el **Plan de la semana** con las 3 prioridades de mayor impacto, y al final **Lo que va bien**: sus puntos más fuertes y lo que ya domina.
+
+| Regla | Se activa cuando… |
+|---|---|
+| 🎯 Posición más cara | Una posición está 8 puntos o más por debajo de la mejor. |
+| 📐 Línea más débil | Una línea está 6 puntos o más por debajo de la mejor. |
+| 🔋 Cansancio | Después del tiro 120 rinde menos que al principio, comparado con su nivel en cada punto. |
+| 🧠 Después de un fallo | Tras fallar encesta menos, ya descontando el sesgo de "tirar hasta N encestes". |
+| ⏱️ Ritmo | Los tiros apresurados entran menos que los pausados. |
+| 🆓 Tiros libres | El primer libre falla más, el % está debajo de 75%, o ya está alto y toca subir la exigencia. |
+| 🆚 Práctica contra partido | En el partido encesta 15 puntos o menos que en práctica. Pesa menos mientras haya pocos tiros de partido. |
+
+> Las sugerencias se recalculan solas con cada jornada. Son una guía a partir de los números; el criterio del entrenador manda.
+
+---
+
 ## 🧪 Laboratorio: el análisis a fondo
 
 <div align="center">

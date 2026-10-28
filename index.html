@@ -189,7 +189,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .bar-row{display:flex;align-items:center;gap:10px;margin:7px 0}
 .bar-row .k{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:18px;width:16px}
 .bar-track{flex:1;height:11px;background:var(--surface-2);border-radius:6px;overflow:hidden}
-.bar-fill{height:100%;border-radius:6px}
+.bar-fill{display:block;height:100%;border-radius:6px}
 .bar-row .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:17px;width:52px;text-align:right}
 .stats{display:flex;gap:10px;flex-wrap:wrap}
 .stat{flex:1;min-width:96px;background:var(--surface-2);border-radius:11px;padding:11px 12px}
@@ -198,6 +198,21 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom));
   background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:999px;font-size:14.5px;z-index:40;max-width:90%;text-align:center}
 .back{color:var(--ink-soft);font-size:15px;margin-bottom:8px;padding:4px 0}
+.lab-duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.lab-duo .record .d{line-height:1.25}
+.lab-tabla{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+.lab-tabla th{font-size:12px;color:var(--ink-soft);font-weight:600;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+.lab-tabla th:not(:first-child),.lab-tabla td:not(:first-child){text-align:center}
+.lab-tabla td{padding:7px 4px;border-bottom:1px solid var(--surface-2)}
+.lab-tabla td.rec{color:var(--ink);font-weight:700;background:color-mix(in srgb,var(--gold) 30%,transparent);border-radius:6px}
+.lab-ext{background:var(--surface-2);border-radius:11px;padding:11px 12px;display:flex;flex-direction:column;gap:2px;border-left:4px solid var(--line-strong)}
+.lab-ext.alto{border-left-color:var(--made)}
+.lab-ext.bajo{border-left-color:var(--miss)}
+.lab-ext .et{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600}
+.lab-ext b{font-family:'Barlow Condensed',sans-serif;font-size:30px;line-height:1}
+.lab-ext span:last-child{font-size:12.5px;color:var(--ink-soft)}
+.lab-sub{font-family:'Barlow Condensed',sans-serif;font-size:16px;margin:2px 0 8px;color:var(--ink-soft)}
+.vivo{border:2px solid var(--gold)}
 .lab-q{font-size:14.5px;font-weight:500;margin:-4px 0 10px}
 .lab-svg{display:block;width:100%;height:auto}
 .lab-svg text{font-family:'Barlow',sans-serif;font-size:11px;fill:var(--ink-soft)}
@@ -239,7 +254,7 @@ const {useState,useEffect,useRef,useMemo,useCallback} = React;
 
 const LINES=["A","B","C","D","E"], POS=[1,2,3,4,5];
 const ANGLES=[90,45,0,-45,-90], RADII=[46,72,98,124,150], HOOP={x:45,y:195};
-const K_PLAYERS="cl_players", K_SESSIONS="cl_sessions", K_PEND="cl_pending", K_URL="cl_sync_url", K_CFG="cl_cfg", K_GAMES="cl_games", K_GPEND="cl_gpending";
+const K_PLAYERS="cl_players", K_SESSIONS="cl_sessions", K_PEND="cl_pending", K_URL="cl_sync_url", K_CFG="cl_cfg", K_GAMES="cl_games", K_GPEND="cl_gpending", K_VIVO="cl_juego_vivo";
 
 const rad=d=>d*Math.PI/180;
 const pt=(a,r)=>({x:HOOP.x+r*Math.cos(rad(a)),y:HOOP.y+r*Math.sin(rad(a))});
@@ -455,7 +470,8 @@ function Court({line=null,pos=null,sel=[],done={},ft=false,compact=false,mapa=nu
 }
 
 /* ---------- inicio ---------- */
-function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onLaboratorio,onAjustes,syncState}){
+function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,onStart,onJuego,onOpen,onOpenJuego,onAnalisis,onLaboratorio,onAjustes,syncState,vivo,onRetomar,onDescartarVivo}){
+  const [seguro,setSeguro]=useState(false);
   const [nuevo,setNuevo]=useState("");
   const [rival,setRival]=useState("");
   const [liga,setLiga]=useState("");
@@ -478,6 +494,14 @@ function Home({players,addPlayer,playerId,setPlayerId,cfg,setCfg,sessions,games,
           {syncState==="on"?"Drive activo":syncState==="pend"?"Por subir":"Solo este equipo"}
         </button>
       </div>
+
+      {vivo&&
+        <div className="card vivo">
+          <h2>Partido sin terminar</h2>
+          <p className="hint" style={{marginBottom:12}}>{vivo.playerName} vs {vivo.rival} · {vivo.shots.length} tiro{vivo.shots.length===1?"":"s"} capturado{vivo.shots.length===1?"":"s"} · empezó {fecha(vivo.startedAt)}</p>
+          <button className="btn btn-primary" onClick={onRetomar}>Retomar el partido</button>
+          <button className="btn btn-quiet" onClick={()=>{ if(seguro){setSeguro(false);onDescartarVivo()} else setSeguro(true) }}>{seguro?"Toca otra vez para borrarlo":"Descartar"}</button>
+        </div>}
 
       <div className="courtbox"><Court sel={cfg.positions}/></div>
 
@@ -979,9 +1003,10 @@ function Evolucion({sessions,player}){
     </React.Fragment>
   );
 }
-function Lineas({shots}){
-  return LINES.map((L,i)=>{
-    const c=agg(shots,s=>s.line===i), p=c.t?c.m/c.t:0;
+function Lineas({shots,por="linea"}){
+  const ejes=por==="pos"?POS.map((P,j)=>[String(P),s=>s.pos===j]):LINES.map((L,i)=>[L,s=>s.line===i]);
+  return ejes.map(([L,f])=>{
+    const c=agg(shots,f), p=c.t?c.m/c.t:0;
     return (
       <div className="bar-row" key={L}>
         <span className="k">{L}</span>
@@ -1123,7 +1148,10 @@ function Analisis({sessions,player,onHome}){
         </div>
         <div className="card"><h2>Mapa de calor</h2><Heat shots={tiro}/>
           <p className="hint" style={{marginTop:10}}>Suma de todas las jornadas del periodo.</p></div>
-        <div className="card"><h2>Por línea</h2><Lineas shots={tiro}/></div>
+        <div className="card"><h2>Por línea</h2><Lineas shots={tiro}/>
+          <p className="hint" style={{marginTop:8}}>Las filas A a E del mapa de calor.</p></div>
+        <div className="card"><h2>Por posición</h2><Lineas shots={tiro} por="pos"/>
+          <p className="hint" style={{marginTop:8}}>Las columnas 1 a 5 del mapa de calor.</p></div>
       </React.Fragment>}
 
       <button className="btn btn-primary" onClick={onHome}>Volver al inicio</button>
@@ -1176,7 +1204,8 @@ function Barras({filas,max,fmt,color}){
 
 const LabCtx=React.createContext("");
 const EJEMPLOS={
-  racha:{t:"Racha más larga",seq:"110"+"1".repeat(9)+"01",p:["En esta serie la jugadora cambia de A3 a A4 a media racha y aun así cuenta: son 9 encestes seguidos, los verdes del centro.","Cada barra de la gráfica es la racha más alta de esa jornada. La dorada es el récord."]},
+  extremos:{t:"Mejor y peor jornada",p:["Si un lunes encesta 100 de 121 (82.6%) y un jueves 100 de 157 (63.7%), la diferencia es de casi 19 puntos.","Una brecha grande dice que el nivel depende mucho del día: sueño, cansancio o calentamiento. Cuando la brecha se achica, la jugadora se vuelve más constante."]},
+  racha:{t:"Racha más larga",seq:"110"+"1".repeat(9)+"01",p:["En esta serie la jugadora cambia de A3 a A4 a media racha y aun así cuenta: son 9 encestes seguidos, los verdes del centro.","En la tabla, cada renglón es la racha más alta de esa jornada, en tiros de línea y en libres. La estrella marca el récord."]},
   costo:{t:"Costo por posición",p:["En A4 necesitó 7 tiros para lograr 4 encestes: 7 ÷ 4 = 1.75 tiros por enceste.","En A1 logró 5 encestes con 5 tiros: 1.00. Bajar el costo de la posición más cara ahorra más tiempo que pulir la que ya domina."]},
   tend:{t:"Tendencia con margen de error",p:["Un día con 72% en 120 tiros tiene un rango probable de 63% a 79%. Es como decir: su nivel real de ese día anda por ahí.","Si al día siguiente saca 77%, las barras se enciman y todavía no prueba una mejora. Cuando varias jornadas seguidas quedan arriba de la línea dorada, ahí sí hay avance."]},
   mano:{t:"¿Existe la racha?",p:["Piensa en una moneda: aunque salga águila tres veces seguidas, la siguiente sigue siendo 50 y 50.","Aquí hay una trampa extra: como cada punto se cierra con un enceste, los encestes se juntan al final de cada serie y eso por sí solo fabrica una racha. La app calcula cuánto aporta esa trampa y solo cuenta como racha real lo que sobra."]},
@@ -1302,7 +1331,11 @@ function Laboratorio({sessions,games,players,inicial,onHome,toast}){
     /* tiros libres por orden en la serie */
     const ord=[[0,0,"1.º de la serie"],[1,4,"2.º a 5.º"],[5,9,"6.º a 10.º"],[10,999,"11.º en adelante"]].map(([a,b,k])=>{const o={k,m:0,t:0};
       js.forEach(s=>s.shots.filter(isFT).slice().sort((x,y)=>x.t-y.t).forEach((x,i)=>{if(i>=a&&i<=b){o.t++;if(x.made)o.m++}})); return o;}).filter(o=>o.t>0);
-    return {rachas,recL,recT,costo,tend,mc,ritmo,gapMed:gaps.length?gaps[Math.floor(gaps.length/2)]:null,fatiga,puntos,ord};
+    /* mejor y peor jornada */
+    const extDe=(f,min)=>{ const v=js.map(x=>{const a=agg(x.shots,f); return {f:x.startedAt,m:a.m,t:a.t,p:a.t?a.m/a.t:0};}).filter(x=>x.t>=min);
+      return v.length>=2?{alto:v.reduce((a,b)=>b.p>a.p?b:a),bajo:v.reduce((a,b)=>b.p<a.p?b:a)}:null; };
+    const ext=extDe(x=>!isFT(x),30), extTL=extDe(isFT,5);
+    return {ext,extTL,rachas,recL,recT,costo,tend,mc,ritmo,gapMed:gaps.length?gaps[Math.floor(gaps.length/2)]:null,fatiga,puntos,ord};
   },[sel,sessions]);
 
   const media=linea.length?mL/linea.length:0;
@@ -1337,19 +1370,42 @@ function Laboratorio({sessions,games,players,inicial,onHome,toast}){
         {/* rachas */}
         <Volteable ej="racha">
           <h2>Racha más larga</h2>
-          <p className="lab-q">Encestes seguidos en los tiros de línea, aunque cambies de posición.</p>
-          <div className="record"><span className="r">{calc.recL.r}</span><span className="d">encestes seguidos · récord del {fecha(calc.recL.f).split(" · ")[0]}</span></div>
-          {(()=>{const R=calc.rachas, W=400, H=170, x0=4, x1=W-4, y0=18, y1=H-34, mx=Math.max(...R.map(x=>x.r),5), ys=v=>y1-v/mx*(y1-y0), bw=(x1-x0)/R.length;
-            return <svg className="lab-svg" viewBox={`0 0 ${W} ${H}`}>
-              {R.map((x,i)=>{const cx=x0+i*bw+bw/2, rec=x===calc.recL; return <g key={i}>
-                <rect x={cx-Math.min(22,bw*.36)} y={ys(x.r)} width={Math.min(44,bw*.72)} height={y1-ys(x.r)} rx="3" fill={rec?"var(--gold)":"var(--accent)"} opacity={rec?1:.75}/>
-                <text x={cx} y={ys(x.r)-5} textAnchor="middle" className="lb">{x.r}</text>
-                {(R.length<=8||i%2===(R.length-1)%2||rec)&&<text x={cx} y={H-16} textAnchor="middle">{fCorta(x.f)}</text>}
-              </g>})}
-              <line x1={x0} x2={x1} y1={y1} y2={y1} stroke="var(--line-strong)"/>
-            </svg>})()}
-          {calc.recT&&<div className="record" style={{marginBottom:0}}><span className="r">{calc.recT.rtl}</span><span className="d">tiros libres seguidos · récord del {fecha(calc.recT.f).split(" · ")[0]}</span></div>}
+          <p className="lab-q">Encestes seguidos sin fallar, aunque cambies de posición.</p>
+          <div className="lab-duo">
+            <div className="record" style={{margin:0}}><span className="r">{calc.recL.r}</span><span className="d">tiros de línea<br/>récord del {fCorta(calc.recL.f)}</span></div>
+            {calc.recT&&<div className="record" style={{margin:0}}><span className="r">{calc.recT.rtl}</span><span className="d">tiros libres<br/>récord del {fCorta(calc.recT.f)}</span></div>}
+          </div>
+          <table className="lab-tabla">
+            <thead><tr><th>Jornada</th><th>Línea</th><th>Libres</th></tr></thead>
+            <tbody>
+              {calc.rachas.slice().reverse().map((x,i)=>(
+                <tr key={i}>
+                  <td>{fCorta(x.f)}</td>
+                  <td className={x===calc.recL?"rec":""}>{x.r}{x===calc.recL?" ★":""}</td>
+                  <td className={x===calc.recT?"rec":""}>{x.rtl||"—"}{x===calc.recT?" ★":""}</td>
+                </tr>))}
+            </tbody>
+          </table>
         </Volteable>
+
+        {/* mejor y peor jornada */}
+        {calc.ext&&
+        <Volteable ej="extremos">
+          <h2>Mejor y peor jornada</h2>
+          <p className="lab-q">El día más alto y el más bajo en efectividad.</p>
+          <div className="lab-duo">
+            <div className="lab-ext alto"><span className="et">Mejor</span><b>{p1(calc.ext.alto.p)}</b><span>{fCorta(calc.ext.alto.f)} · {calc.ext.alto.m} de {calc.ext.alto.t}</span></div>
+            <div className="lab-ext bajo"><span className="et">Más baja</span><b>{p1(calc.ext.bajo.p)}</b><span>{fCorta(calc.ext.bajo.f)} · {calc.ext.bajo.m} de {calc.ext.bajo.t}</span></div>
+          </div>
+          {calc.extTL&&<React.Fragment>
+            <h3 className="lab-sub">Tiros libres</h3>
+            <div className="lab-duo">
+              <div className="lab-ext alto"><span className="et">Mejor</span><b>{p1(calc.extTL.alto.p)}</b><span>{fCorta(calc.extTL.alto.f)} · {calc.extTL.alto.m} de {calc.extTL.alto.t}</span></div>
+              <div className="lab-ext bajo"><span className="et">Más baja</span><b>{p1(calc.extTL.bajo.p)}</b><span>{fCorta(calc.extTL.bajo.f)} · {calc.extTL.bajo.m} de {calc.extTL.bajo.t}</span></div>
+            </div></React.Fragment>}
+          <p className="lab-read">La diferencia entre su mejor y su peor día es de <b>{((calc.ext.alto.p-calc.ext.bajo.p)*100).toFixed(1)} puntos</b>.</p>
+          <p className="lab-ojo">Solo cuentan jornadas con al menos 30 tiros de línea y 5 tiros libres, para que un día corto no se lleve el récord.</p>
+        </Volteable>}
 
         {/* costo por posición */}
         <Volteable ej="costo">
@@ -1518,7 +1574,8 @@ function Ajustes({onHome,toast,onSync,pendientes}){
 
 /* ---------- partido: captura ---------- */
 function Juego({game,setGame,onFinish,onAbort}){
-  const [per,setPer]=useState(1);
+  /* al retomar un partido se sigue en el último periodo capturado */
+  const [per,setPer]=useState(()=>Math.max(1,...game.shots.map(s=>Number(s.periodo)||1),...(game.assists||[]).map(a=>Number(a.periodo)||1)));
   const [pend,setPend]=useState(null);
   const [ask,setAsk]=useState(null);
   const [flip,setFlip]=useState(game.lado==="der");
@@ -1775,6 +1832,10 @@ function App(){
   const [screen,setScreen]=useState("home");
   const [session,setSession]=useState(null);
   const [msg,setMsg]=useState(null);
+  const [vivo,setVivo]=useState(()=>load(K_VIVO,null));
+  /* el partido en curso se guarda en el teléfono con cada tiro, por si la app se cierra */
+  useEffect(()=>{ if(screen==="juego"&&game){ save(K_VIVO,game); setVivo(game); } },[game,screen]);
+  const soltarVivo=()=>{ try{localStorage.removeItem(K_VIVO)}catch(e){} setVivo(null); };
   const [online,setOnline]=useState(!!syncUrl());
   const toast=t=>{setMsg(t);setTimeout(()=>setMsg(null),2800)};
 
@@ -1817,6 +1878,7 @@ function App(){
   };
   const finishJuego=async()=>{
     const g={...game,endedAt:new Date().toISOString()};
+    soltarVivo();
     const next=mergeSessions([g],games); setGames(next); save(K_GAMES,next);
     setGame(g); setScreen("juegoResumen");
     if(syncUrl()){
@@ -1849,7 +1911,7 @@ function App(){
 
   if(screen==="juego"&&game)
     return <Juego game={game} setGame={setGame} onFinish={finishJuego}
-                  onAbort={()=>{setGame(null);setScreen("home")}}/>;
+                  onAbort={()=>{soltarVivo();setGame(null);setScreen("home")}}/>;
 
   if(screen==="capture"&&session)
     return <Capture session={session} setSession={setSession} onFinish={finish} record={record}
@@ -1873,7 +1935,8 @@ function App(){
           onOpen={s=>{setSession(s);setScreen("summary")}}
           onOpenJuego={g=>{setGame(g);setScreen("juegoResumen")}}
           onAnalisis={()=>setScreen("analisis")} onLaboratorio={()=>{window.scrollTo(0,0);setScreen("laboratorio")}} onAjustes={()=>setScreen("ajustes")}
-          syncState={pending.length?"pend":online?"on":"off"}/>);
+          syncState={pending.length?"pend":online?"on":"off"}
+          vivo={vivo} onRetomar={()=>{setGame(vivo);setScreen("juego")}} onDescartarVivo={soltarVivo}/>);
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>

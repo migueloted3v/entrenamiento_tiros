@@ -57,6 +57,18 @@ Para los juegos de verdad, no solo la práctica:
 - El resumen se puede ver por **partido**, por **liga** o con **todos sus partidos**.
 - Puedes voltear la cancha al medio tiempo. El mapa se guarda siempre igual, así que el acumulado no se rompe.
 
+### 🔁 Retomar el partido
+
+<img src="docs/partido.png" width="220" align="right" alt="Retomar el partido">
+
+Cada tiro se guarda en el teléfono **en el momento en que lo capturas**. Si el celular se apaga, se queda sin pila o la app se cierra a medio juego, no se pierde nada:
+
+- Al abrir la app aparece arriba la tarjeta **Partido sin terminar**, con rival, tiros capturados y hora de inicio.
+- **Retomar el partido** te regresa a la cancha con los tiros, el marcador y el periodo donde ibas.
+- **Descartar** pide un segundo toque, para que no se borre por accidente.
+
+<br clear="right">
+
 ---
 
 ## 📊 Análisis de cada jugador
@@ -67,7 +79,7 @@ Desde la pantalla principal, **Análisis de [jugador]** muestra solo a quien est
 
 - 🎯 **Efectividad acumulada** en tiros de línea y tiros libres.
 - 🗺️ **Mapa de calor** de los 25 puntos, con encestes y tiros reales de cada uno.
-- 📏 **Rendimiento por línea** y cuál es la más fuerte.
+- 📏 **Por línea (A a E)** y **por posición (1 a 5)**, con barras para ver de un vistazo dónde es más fuerte.
 - 📅 Filtros de **todo**, **últimos 30 días** y **últimos 90 días**.
 
 <br clear="right">
@@ -78,14 +90,16 @@ Desde la pantalla principal, **Análisis de [jugador]** muestra solo a quien est
 
 <div align="center">
 <img src="docs/lab.png" width="230" alt="Racha más larga">&nbsp;&nbsp;
-<img src="docs/lab2.png" width="230" alt="Tendencia y racha">
+<img src="docs/lab2.png" width="230" alt="Mejor y peor jornada">&nbsp;&nbsp;
+<img src="docs/voltear.png" width="230" alt="Tarjeta volteada con ejemplo">
 </div>
 
 El botón **Laboratorio de [jugador]** responde las preguntas que un entrenador se hace y que no se ven a simple vista:
 
 | | Módulo | La pregunta que responde |
 |:-:|---|---|
-| 🔥 | **Racha más larga** | ¿Cuántos encestes seguidos ha logrado, y cuándo? Gráfica por jornada, récord con fecha y récord de tiros libres. |
+| 🔥 | **Racha más larga** | ¿Cuántos encestes seguidos ha logrado, y cuándo? Tabla con la racha de cada jornada en tiros de línea (aunque cambie de posición) y en tiros libres. El récord de cada columna se marca con ★ y su fecha. |
+| 🏆 | **Mejor y peor jornada** | ¿Cuál fue su día más alto y el más bajo, y qué tan lejos están? En tiros de línea y en libres, con fecha y tiros reales. Solo cuentan jornadas con al menos 30 tiros de línea y 5 libres. |
 | 💰 | **Costo por posición** | ¿Cuántos tiros cuesta cada enceste y en qué posición se va el tiempo de entrenamiento? |
 | 📈 | **Tendencia con margen de error** | ¿Está mejorando de verdad, o es la variación normal de un día a otro? |
 | 🎲 | **¿Existe la racha?** | Después de encestar, ¿de verdad es más probable volver a encestar? Corrige el sesgo de la regla de "tirar hasta N encestes". |
@@ -97,6 +111,19 @@ El botón **Laboratorio de [jugador]** responde las preguntas que un entrenador 
 
 Cada módulo trae su gráfica, una lectura en palabras sencillas y una nota de qué cuidar al interpretarlo. Las jornadas de prueba (tiros capturados a menos de 1.5 segundos entre uno y otro) se descartan solas.
 
+### 🔄 Tarjetas que se voltean
+
+Toca cualquier tarjeta y **se voltea** para mostrar una explicación breve con un ejemplo en números. Vuelve a tocarla para regresar.
+
+### 📲 Compartir por WhatsApp como imagen
+
+El botón **Compartir como imagen** convierte cada tarjeta del Laboratorio en una imagen, lista para mandar por WhatsApp. Solo se envían las imágenes, **nunca los datos**.
+
+1. Toca **Compartir como imagen**. La app prepara una imagen por tarjeta.
+2. Revisa las imágenes y toca **Enviar por WhatsApp**. Se abre el menú de compartir del teléfono con todas juntas.
+
+> Va en dos pasos porque el iPhone solo deja compartir varios archivos si el envío sale de un toque reciente.
+
 ---
 
 ## ☁️ Tus datos, siempre a salvo
@@ -104,6 +131,7 @@ Cada módulo trae su gráfica, una lectura en palabras sencillas y una nota de q
 - **Primero se guarda en el teléfono.** Puedes capturar en un gimnasio sin señal y no se pierde nada.
 - **Si no hay internet, la jornada espera en una cola** y sube sola la próxima vez que haya conexión.
 - **Respaldo en una hoja de Google** compartida por la familia: todos los teléfonos ven los mismos jugadores, jornadas y análisis.
+- **Un partido a medias tampoco se pierde:** si la app se cierra, al volver te ofrece retomarlo.
 - La etiqueta de arriba a la derecha te dice el estado: **Drive activo**, **Por subir** o **Solo este equipo**.
 - La hoja guarda una fila por tiro, lista para abrirse en Excel o conectarse a Power BI.
 
@@ -116,6 +144,8 @@ Cada módulo trae su gráfica, una lectura en palabras sencillas y una nota de q
 - ⏱️ **El ritmo solo cuenta tiros seguidos en el mismo punto.** El cambio de posición, las pausas y los intervalos de más de dos minutos no cuentan.
 - ✳️ **El asterisco en el mapa de calor** marca puntos que se cerraron sin llegar al objetivo.
 - 🛡️ **Un tiro bloqueado cuenta como fallado**, igual que en la estadística oficial, y se marca aparte.
+- 🏆 **Mejor y peor jornada exigen un mínimo** de 30 tiros de línea y 5 libres, para que un día corto no se quede con el récord.
+- 🔥 **La racha cruza posiciones**: cuenta encestes seguidos de toda la jornada, no solo de un punto. Los libres llevan su propia racha.
 - ⚪ **Una zona de partido con menos de seis tiros se muestra en gris**: su porcentaje todavía no dice nada.
 - ⚖️ **Compara puntos por tiro, no puntos totales.** Quien más tira siempre anota más.
 - 🔄 **No compares días con posiciones distintas.** Un 80% en posiciones 1 y 2 no se compara con un 60% en la 5. Para eso está el detalle por punto.

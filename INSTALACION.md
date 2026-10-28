@@ -87,7 +87,7 @@ Cada vez que cambies `index.html`:
 2. En `sw.js` cambia **una sola línea**, la versión, a un número mayor:
 
    ```js
-   var VERSION = 'tiros-v9';   // la siguiente sería 'tiros-v10'
+   var VERSION = 'tiros-v12';   // la siguiente sería 'tiros-v13'
    ```
 
 3. Espera 1 o 2 minutos a que GitHub Pages publique.
@@ -126,5 +126,9 @@ Cada vez que cambies `index.html`:
 **No veo las jornadas de otra persona.** Su teléfono no tiene la URL en Ajustes, o pegó una URL distinta. Compara que ambas terminen exactamente igual.
 
 **Las imágenes del README no se ven en GitHub.** La carpeta `docs` no se subió o quedó con otro nombre. Debe llamarse `docs`, en minúsculas, en la raíz del repo.
+
+**Se cerró la app a medio partido.** Ábrela de nuevo y toca **Retomar el partido** en la tarjeta de arriba. Los tiros se guardan en el teléfono al momento, así que no se pierde nada.
+
+**Al compartir como imagen solo sale una tarjeta.** Usa los dos pasos: primero **Compartir como imagen**, luego **Enviar por WhatsApp** en la hoja que aparece. Si el teléfono tiene una versión vieja en caché, revisa que `sw.js` tenga la versión más reciente.
 
 **La pantalla se apaga a media serie.** La app pide bloqueo de pantalla, pero algunos navegadores lo ignoran. Sube el tiempo de apagado del celular durante el entrenamiento.

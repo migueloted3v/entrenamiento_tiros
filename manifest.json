@@ -1,12 +1,12 @@
 {
-  "name": "Entrenamiento de tiros",
-  "short_name": "Tiros",
+  "name": "Cinco Líneas · Entrenamiento de tiros",
+  "short_name": "Cinco Líneas",
   "description": "Captura de tiros de baloncesto por línea y posición, con efectividad por punto y mapa de calor.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#FFFFFF",
+  "background_color": "#0A1226",
   "theme_color": "#0F1D3A",
   "lang": "es-MX",
   "icons": [

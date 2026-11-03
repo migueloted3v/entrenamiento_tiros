@@ -18,7 +18,7 @@ var LINEAS = ['A','B','C','D','E'];
 
 var COLS_JORNADAS = ['jornada_id','jugador','fecha_iso','fecha_local','posiciones',
   'encestes_objetivo','tl_objetivo','encestes_linea','tiros_linea','efectividad_linea',
-  'encestes_tl','tiros_tl','efectividad_tl','registrado'];
+  'encestes_tl','tiros_tl','efectividad_tl','registrado','regla_tl','orden'];
 
 var COLS_TIROS = ['jornada_id','jugador','fecha_local','fase','linea','posicion','intento',
   'enceste','seg_desde_anterior','ts_ms','linea_idx','pos_idx'];
@@ -47,6 +47,10 @@ function hoja_(nombre, cols) {
     sh.appendRow(cols);
     sh.getRange(1, 1, 1, cols.length).setFontWeight('bold');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < cols.length) {
+    // hojas creadas con una versión anterior: agrega los encabezados nuevos al final
+    var faltan = cols.slice(sh.getLastColumn());
+    sh.getRange(1, sh.getLastColumn() + 1, 1, faltan.length).setValues([faltan]).setFontWeight('bold');
   }
   return sh;
 }
@@ -92,7 +96,9 @@ function doPost(e) {
       j.target, j.ftTarget,
       mL, linea.length, linea.length ? mL / linea.length : '',
       mT, tl.length, tl.length ? mT / tl.length : '',
-      new Date()
+      new Date(),
+      j.reglaTL || 'intentos',
+      j.orden === 'EA' ? 'E-A' : 'A-E'
     ]);
 
     var intento = {};
@@ -207,6 +213,8 @@ function doGet(e) {
         positions: String(r[4] || '').split(',').filter(String).map(function (p) { return Number(p) - 1; }),
         target: Number(r[5]) || 5,
         ftTarget: Number(r[6]) || 10,
+        reglaTL: String(r[14] || '') || 'intentos',
+        orden: String(r[15] || '') === 'E-A' ? 'EA' : 'AE',
         shots: (porId[id] || []).sort(function (a, b) { return a.t - b.t; })
       };
     });

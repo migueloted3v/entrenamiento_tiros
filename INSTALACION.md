@@ -99,7 +99,7 @@ Cada vez que cambies `index.html`:
 
 ## Estructura de la hoja
 
-**`Jornadas`**: una fila por sesión. Identificador, jugador, fecha, posiciones entrenadas, objetivo de encestes, totales y efectividad de línea y de tiros libres, y la regla de tiros libres (`regla_tl`).
+**`Jornadas`**: una fila por sesión. Identificador, jugador, fecha, posiciones entrenadas, objetivo de encestes, totales y efectividad de línea y de tiros libres, la regla de tiros libres (`regla_tl`) y el orden de inicio (`orden`: A-E o E-A).
 
 **`Tiros`**: una fila por tiro. Jornada, jugador, fecha, fase (`LINEA` o `TL`), línea, posición, número de intento, resultado (1/0) y segundos desde el tiro anterior.
 

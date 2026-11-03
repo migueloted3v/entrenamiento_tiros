@@ -2,7 +2,9 @@
 
 <img src="icon-192.png" width="96" alt="Ícono de la app">
 
-# Entrenamiento de tiros
+# Cinco Líneas
+
+**Entrenamiento de tiros**
 
 **Registra cada tiro, mide cuánto cuesta cada enceste y descubre dónde mejorar.**
 
@@ -24,7 +26,7 @@ App para el celular que acompaña el entrenamiento de tiro en baloncesto: se cap
 
 La cancha se divide en **5 líneas (A a E)** y **5 posiciones (1 a 5)**: 25 puntos de tiro.
 
-1. **Eliges las posiciones del día** y cuántos encestes pides en cada punto (por ejemplo, 5).
+1. **Eliges las posiciones del día**, cuántos encestes pides en cada punto (por ejemplo, 5) y **por qué línea empiezas**: de la A a la E o de la E a la A. La app te sugiere alternar el orden para que el análisis pueda separar el efecto del calentamiento del de la línea.
 2. **La jugadora tira hasta lograr esos encestes** en cada punto. La app cuenta cuántos tiros le costó.
 3. Al completar un punto, la app **avanza sola en 3 segundos** al siguiente. Puedes pasar de inmediato o quedarte ahí.
 4. Al final vienen los **tiros libres**: se tira hasta lograr 10 encestes. Si quiere seguir tirando para buscar racha, esos tiros extra se miden aparte.
@@ -37,7 +39,7 @@ La cancha se divide en **5 líneas (A a E)** y **5 posiciones (1 a 5)**: 25 punt
 
 <img src="docs/captura.png" width="220" align="right" alt="Pantalla de captura">
 
-- Media pantalla **verde para "Anotó"** y media **roja para "Falló"**. No hay que ver el celular para atinarle.
+- Media pantalla **verde para "Anotó"**, que cuenta los anotados de la posición, y media **roja para "Falló"**, que cuenta los fallados. No hay que ver el celular para atinarle.
 - Arriba se ve el punto actual, los encestes que faltan y los círculos de cada intento.
 - **Pausa**, **Omitir punto** y **Terminar** siempre a la mano.
 - La pantalla se mantiene encendida durante la serie.
@@ -128,6 +130,7 @@ El botón **Laboratorio de [jugador]** responde las preguntas que un entrenador 
 | 📈 | **Tendencia con margen de error** | ¿Está mejorando de verdad, o es la variación normal de un día a otro? |
 | 🎲 | **¿Existe la racha?** | Después de encestar, ¿de verdad es más probable volver a encestar? Corrige el sesgo de la regla de "tirar hasta N encestes". |
 | ⏱️ | **Ritmo de tiro** | ¿Tira mejor rápido o tomándose su tiempo? |
+| 🔀 | **Orden de inicio** | ¿La última línea sale mejor por ser esa línea o porque ya calentó? Compara cada línea según si la jornada empezó en A o en E y estima cuántos puntos aporta la línea y cuántos el calentamiento. Da su conclusión con al menos 3 jornadas en cada orden. |
 | 🔋 | **Curva de fatiga** | ¿Baja la efectividad conforme avanza la jornada? |
 | 🎯 | **Puntos confiables y volátiles** | ¿Dónde es predecible y dónde depende del día? |
 | 🆓 | **Tiros libres en secuencia** | ¿Cómo cambia el libre según su orden en la serie? |
